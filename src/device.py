@@ -1,7 +1,10 @@
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 from src.profile import Profile
-from typing import Dict
+from src.source import CDsource
+from src.lawson import Lawson
+from typing import Dict, Optional
 
 class Blanket:
     def __init__(self, density_6 : float, density_7 : float, slowing_down_cs : float, breeding_cs : float, E_thres : float):
@@ -154,6 +157,8 @@ class Tokamak:
     def __init__(
         self, 
         profile : Profile, 
+        source : CDsource,
+        lawson : Lawson, 
         k : float, 
         epsilon : float, 
         tri : float, 
@@ -176,14 +181,18 @@ class Tokamak:
         H : float,
         maximum_allowable_J : float,
         maximum_allowable_stress : float,
+        RF_recirculating_rate : float,
         ):
         
         self.profile = profile
+        self.source = source
+        self.lawson = lawson
         self.k = k
         self.epsilon = epsilon
         self.tri = tri
         self.thermal_efficiency = thermal_efficiency
         self.electric_power = electric_power
+        self.RF_recirculating_rate = RF_recirculating_rate
         
         self.B0 = B0
         
@@ -220,6 +229,11 @@ class Tokamak:
         # update profile with exact values
         self.update_p_avg()
         self.update_n_avg()
+        
+        # update current source 
+        self.source.update_B0(self.B0 * (1-(self.a + self.blanket_thickness + self.shield_depth) / self.Rc))
+        self.source.update_plasma_frequency(self.profile.compute_n(0.8 * self.a, self.a))
+        self.source.update_eb(self.a, self.blanket_thickness, self.Rc)
         
     def update_p_avg(self):
         fp = self.profile.compute_p_profile(n=65)[:-1] / self.profile.p_avg
@@ -317,7 +331,76 @@ class Tokamak:
         beta_max = betan * self.compute_Ip() / self.a / B
         return beta_max
     
-    def print_info(self):
+    def compute_bootstrap_fraction(self):
+        P_CD = self.electric_power * self.RF_recirculating_rate
+        I_CD = self.source.compute_I_CD(self.Rc, P_CD, self.profile.n_avg)
+        Ip = self.compute_Ip()
+        f_bs = 1 - I_CD / Ip
+        return f_bs
+    
+    def compute_NC_bootstrap_fraction(self):
+        a_hat = self.a * self.k ** 0.5
+        Ip = self.compute_Ip()
+        
+        rho = np.linspace(0,1,64)
+        
+        p_profile = self.profile.compute_p_profile(64)
+        n_profile = self.profile.compute_n_profile(64)
+        T_profile = self.profile.compute_T_profile(64)
+        
+        drho = rho[1] - rho[0]
+        
+        pprime = (p_profile[1:] - p_profile[:-1]) / drho
+        nprime = (n_profile[1:] - n_profile[:-1]) / drho
+        Tprime = (T_profile[1:] - T_profile[:-1]) / drho
+        
+        rho = (rho[1:] + rho[:-1]) / 2
+        p_profile = (p_profile[1:] + p_profile[:-1]) / 2
+        n_profile = (n_profile[1:] + n_profile[:-1]) / 2
+        T_profile = (T_profile[1:] + T_profile[:-1]) / 2
+        
+        x = rho ** 2.25
+        alpha = 2.53
+        mu = 4 * math.pi * 10 ** (-7)
+        
+        Jtor = Ip / math.pi / a_hat ** 2 * (9/8) * rho ** 0.25 * (alpha ** 2 * (1-x) * np.exp(alpha * x) / (np.exp(alpha) - 1 - alpha))
+        Bp = mu * Ip / 2 / math.pi / a_hat * (1 / rho) * (((1 + alpha - alpha * x) * np.exp(alpha * x) - 1 - alpha)/ (np.exp(alpha) - 1 - alpha)) * 10 ** 6
+        
+        JB = -2.44 * (rho * a_hat / self.Rc) ** 0.5 * (p_profile / Bp) * (1 / n_profile * nprime + 0.055 / T_profile * Tprime) / a_hat
+        
+        IB = 2 * sum(JB * rho * drho) * self.a ** 2 * self.k * math.pi * 10 ** (-6)
+        f_NC = IB / Ip
+        return f_NC
+    
+    def print_lawson_criteria(self, filename : str):
+        
+        tau_operation = self.compute_confinement_time()
+        T_operation = self.profile.T_avg
+        
+        T = np.linspace(6, 100, 64, endpoint=False)
+        n = self.profile.n_avg
+        B = self.B0 * (1 - (self.a + self.blanket_thickness)/self.Rc)
+        
+        psi = 10 ** (-2)
+        
+        n_tau = [self.lawson.compute_n_tau_lower_bound(t, n, B, psi) * 10 ** (-20) for t in T]
+        n_tau_Q = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi) * 10 ** (-20) for t in T]
+        n *= 10 ** (-20)
+        
+        fig, ax = plt.subplots(1,1, figsize = (8,6))
+        ax.plot(T, n_tau, "k", label = "Lawson criteria (Ignition)")
+        ax.scatter(T_operation, tau_operation * n, c = 'r', label = 'operation state')
+        ax.plot(T, n_tau_Q, "b", label = "Lawson criteria (Q={})".format(self.lawson.Q))
+    
+        ax.set_xlabel("T(unit : keV)")
+        ax.set_ylabel("$(N\\tau_E)_{dt}(unit:10^{20}s * m^{-3})$")
+        ax.set_xlim([0,100])
+        ax.set_ylim([0,10])
+        ax.legend()
+        fig.tight_layout()
+        plt.savefig(filename)
+        
+    def print_info(self, filename : Optional[str] = None):
         
         print("\n================================================")
         print("============= Tokamak design info ==============")
@@ -332,7 +415,7 @@ class Tokamak:
         print("| Shield : {:.3f}".format(self.shield_depth))
         print("| TF coil : {:.3f}".format(self.coil_thickness))
         print("| total thickness : {:.3f}".format(self.total_thickness))
-        print("================ Operation info ================")
+        print("============== Physical parameters ==============")
         print("| Magnetic field : {:.3f}".format(self.B0))
         print("| Elongation : {:.3f}".format(self.k))
         print("| Aspect ratio : {:.3f}".format(self.epsilon))
@@ -341,13 +424,11 @@ class Tokamak:
         print("| Electric power : {:.3f} MW".format(self.electric_power / 10**6))
         print("| TBR : {:.3f}".format(self.compute_TBR()))
         print("| beta : {:.3f}".format(self.compute_beta() * 100))
-        print("| tau : {:.3f}s".format(self.compute_confinement_time()))
-        print("| Ip : {:.3f}MA".format(self.compute_Ip()))
+        print("| tau : {:.3f} s".format(self.compute_confinement_time()))
+        print("| Ip : {:.3f} MA".format(self.compute_Ip()))
         print("| q : {:.3f}".format(self.compute_q()))
-        print("| Q-parallel : {:.3f}MW-T/m".format(self.compute_parallel_heat_flux()))
-        print("================================================")
-        
-    def check_operation_limit(self):
+        print("| f_bs : {:.3f}".format(self.compute_bootstrap_fraction()))
+        print("| Q-parallel : {:.3f} MW-T/m".format(self.compute_parallel_heat_flux()))
         
         beta = self.compute_beta()
         beta_troyon = self.compute_troyon_beta()
@@ -361,8 +442,49 @@ class Tokamak:
         ng = self.compute_greenwald_density() / 10 ** 20
         n_check = "O" if n < ng else "X"
         
+        f_NC = self.compute_NC_bootstrap_fraction()
+        f_bs = self.compute_bootstrap_fraction()
+        bs_check = "O" if f_NC > f_bs else "X"
+        
         print("=============== Operation limit ================")
         print("| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(ng, n, n_check))
         print("| q-kink : {:.3f}, operation q : {:.3f} | {}".format(q_kink, q, q_check))
-        print("| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta, b_check))
+        print("| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta * 100, b_check))
+        print("| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(f_NC, f_bs, bs_check))
         print("================================================")
+        
+        if filename:
+            with open(filename, "w") as f:
+                f.write("\n================================================")
+                f.write("\n============= Tokamak design info ==============")
+                f.write("\n================================================\n")
+                f.write("\n=============== Structure design ===============\n")
+                f.write("\n| CS coil | TF coil | shield | blanket | 1st wall ) core ) 1st wall ) blanket ) shield ) TF coil")
+                f.write("\n================ Geometric info ================")
+                f.write("\n| Major radius R : {:.3f}".format(self.Rc))
+                f.write("\n| Minor radius a : {:.3f}".format(self.a))
+                f.write("\n| Armour : {:.3f}".format(self.armour_thickness))
+                f.write("\n| Blanket : {:.3f}".format(self.blanket_thickness))
+                f.write("\n| Shield : {:.3f}".format(self.shield_depth))
+                f.write("\n| TF coil : {:.3f}".format(self.coil_thickness))
+                f.write("\n| total thickness : {:.3f}".format(self.total_thickness))
+                f.write("\n============== Physical parameters ==============")
+                f.write("\n| Magnetic field : {:.3f}".format(self.B0))
+                f.write("\n| Elongation : {:.3f}".format(self.k))
+                f.write("\n| Aspect ratio : {:.3f}".format(self.epsilon))
+                f.write("\n| Triangularity : {:.3f}".format(self.tri))
+                f.write("\n| Thermal efficiency : {:.3f}".format(self.thermal_efficiency))
+                f.write("\n| Electric power : {:.3f} MW".format(self.electric_power / 10**6))
+                f.write("\n| TBR : {:.3f}".format(self.compute_TBR()))
+                f.write("\n| beta : {:.3f}".format(self.compute_beta() * 100))
+                f.write("\n| tau : {:.3f} s".format(self.compute_confinement_time()))
+                f.write("\n| Ip : {:.3f} MA".format(self.compute_Ip()))
+                f.write("\n| q : {:.3f}".format(self.compute_q()))
+                f.write("\n| f_bs : {:.3f}".format(self.compute_bootstrap_fraction()))
+                f.write("\n| Q-parallel : {:.3f} MW-T/m".format(self.compute_parallel_heat_flux()))
+                f.write("\n=============== Operation limit ================")
+                f.write("\n| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(ng, n, n_check))
+                f.write("\n| q-kink : {:.3f}, operation q : {:.3f} | {}".format(q_kink, q, q_check))
+                f.write("\n| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta, b_check))
+                f.write("\n| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(f_NC, f_bs, bs_check))
+                f.write("\n================================================")

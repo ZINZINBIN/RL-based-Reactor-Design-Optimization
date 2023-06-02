@@ -1,42 +1,69 @@
 from src.device import Tokamak
 from src.profile import Profile
+from src.source import CDsource
+from src.lawson import Lawson
+from config.device_info import config
+import argparse
+import os
+
+def parsing():
+    parser = argparse.ArgumentParser(description="Compute the tokamak design and verify the lawson criteria")
+    parser.add_argument("--save_dir", type = str, default = "./results")
+    parser.add_argument("--tag", type = str, default = "reference")
+    args = vars(parser.parse_args())
+    return args
 
 if __name__ == "__main__":
     
+    args = parsing()
+    
     profile = Profile(
-        nu_T = 1,
-        nu_p = 1.5,
-        nu_n = 0.5,
-        n_avg = 1.43 * 10 ** 20, 
-        T_avg = 14, 
-        p_avg = 8.0 * 1.01 * 10 ** 5
+        nu_T = config["nu_T"],
+        nu_p = config["nu_p"],
+        nu_n = config["nu_n"],
+        n_avg = config["n_avg"], 
+        T_avg = config["T_avg"], 
+        p_avg = config['p_avg']
+    )
+    
+    source = CDsource(
+        conversion_efficiency = config['conversion_efficiency'],
+        absorption_efficiency = config['absorption_efficiency'],
+    )
+    
+    lawson = Lawson(
+        Q = config['Q']
     )
     
     tokamak = Tokamak(
         profile,
-        k = 1.7,
-        epsilon = 4,  
-        tri = 0,
-        thermal_efficiency = 0.4,
-        electric_power = 1000 * 10 ** 6,
-        armour_thickness = 0.1,
-        armour_density = 4.6 * 10 ** 28,
-        armour_cs = 2 * 10 ** (-18),
-        maximum_wall_load = 4.0 * 10 ** 6,
-        maximum_heat_load = 0,
-        shield_density = 4.6 * 10 ** 28,
-        shield_depth = 0.1,
-        shield_cs = 2 * 10 ** (-18),
-        Li_6_density = 0.34 * 10 ** 28,
-        Li_7_density = 4.6 * 10 ** 28,
-        slowing_down_cs= 2 * 10 ** (-28),
-        breeding_cs= 950 * 10 ** (-28),
-        E_thres = 0.025 * 10 ** (-6),
-        B0 = 13,
-        H = 1,
-        maximum_allowable_J = 20 * 10 ** 6,
-        maximum_allowable_stress = 600 * 10 ** 6
+        source,
+        lawson,
+        k = config['k'],
+        epsilon = config['epsilon'],  
+        tri = config['tri'],
+        thermal_efficiency = config['thermal_efficiency'],
+        electric_power = config['electric_power'],
+        armour_thickness = config['armour_thickness'],
+        armour_density = config['armour_density'],
+        armour_cs = config['armour_cs'],
+        maximum_wall_load = config['maximum_wall_load'],
+        maximum_heat_load = config['maximum_heat_load'],
+        shield_density = config['shield_density'],
+        shield_depth = config['shield_depth'],
+        shield_cs = config['shield_cs'],
+        Li_6_density = config['Li_6_density'],
+        Li_7_density = config['Li_7_density'],
+        slowing_down_cs= config['slowing_down_cs'],
+        breeding_cs= config['breeding_cs'],
+        E_thres = config['E_thres'],
+        B0 = config['B0'],
+        H = config['H'],
+        maximum_allowable_J = config['maximum_allowable_J'],
+        maximum_allowable_stress = config['maximum_allowable_stress'],
+        RF_recirculating_rate= config['RF_recirculating_rate']
     )
     
-    tokamak.print_info()
-    tokamak.check_operation_limit()
+    # save file
+    tokamak.print_info(os.path.join(args['save_dir'], "{}_stat.txt".format(args['tag'])))
+    tokamak.print_lawson_criteria(os.path.join(args['save_dir'], "{}_lawson.png".format(args['tag'])))

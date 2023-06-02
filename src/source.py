@@ -5,22 +5,25 @@ class CDsource:
         self, 
         conversion_efficiency : float, 
         absorption_efficiency : float, 
-        w_pe : float, 
-        w_pi : float,
-        B0 : float, 
-        eb : float,
         ):
         
         self.conversion_efficiency = conversion_efficiency
         self.absorption_efficiency = absorption_efficiency
-        self.w_pe = w_pe
-        self.w_pi = w_pi
         
-        self.B0 = B0
-        self.eb = eb
-        
+        self.mi = 1.67 * 10 ** (-27)
         self.me = 9.11 * 10 ** (-31)
         self.e = 1.6 * 10 ** (-19)
+        
+    def update_plasma_frequency(self, n_avg : float):
+        eps = 8.85 * 10 ** (-12)
+        self.w_pe = (self.e ** 2 * n_avg / eps / self.me) ** 0.5
+        self.w_pi = (self.e ** 2 * n_avg / eps / self.mi) ** 0.5
+        
+    def update_eb(self, a : float, b : float, Rc : float):
+        self.eb = (a + b) / Rc
+        
+    def update_B0(self, B0):
+        self.B0 = B0
         
     def compute_B(self, rho : float):
         B = self.B0 / (1 + self.eb * rho)
@@ -39,8 +42,16 @@ class CDsource:
     def compute_CD_efficiency(self):
         
         w_LH = self.compute_w_LH(0.8)
+        W_e = self.compute_W_e(0.8)
         w = 2 * w_LH
-        index_parallel = self.w_pe / self.W_e + (1 + (self.w_pe / self.W_e ) ** 2) ** 0.5 * (1 - (w_LH / w) ** 2) ** 0.5
-        
+        index_parallel = self.w_pe / W_e + (1 + (self.w_pe / W_e ) ** 2) ** 0.5 * (1 - (w_LH / w) ** 2) ** 0.5
+    
         eta_CD = 1.2 / index_parallel ** 2
         return eta_CD
+    
+    def compute_I_CD(self, R0 : float, P_CD : float, n_avg : float):
+        eta_CD = self.compute_CD_efficiency()
+        n_avg /= 10 ** 20
+        P_CD /= 10 ** 6
+        I_CD = eta_CD * P_CD / R0 / n_avg
+        return I_CD
