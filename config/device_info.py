@@ -30,5 +30,8 @@ config = {
     "H":1,
     "maximum_allowable_J":20 * 10 ** 6,
     "maximum_allowable_stress":600 * 10 ** 6,
-    "RF_recirculating_rate":0.1
+    "RF_recirculating_rate":0.1,
+    "pb_density" : 8.98 * 10 ** 3 / (204 + 7 * 17 / 83) * 6.02 * 10 ** 23,
+    "cs_pb_scatter" : 11.118 * 10 ** (-28),
+    "cs_pb_absorption" : 0.171 * 10 ** (-28),
 }

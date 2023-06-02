@@ -1,7 +1,6 @@
 from src.device import Tokamak
 from src.profile import Profile
 from src.source import CDsource
-from src.lawson import Lawson
 from config.device_info import config
 import argparse
 import os
@@ -31,14 +30,10 @@ if __name__ == "__main__":
         absorption_efficiency = config['absorption_efficiency'],
     )
     
-    lawson = Lawson(
-        Q = config['Q']
-    )
-    
     tokamak = Tokamak(
         profile,
         source,
-        lawson,
+        Q = config['Q'],
         k = config['k'],
         epsilon = config['epsilon'],  
         tri = config['tri'],
@@ -57,6 +52,8 @@ if __name__ == "__main__":
         slowing_down_cs= config['slowing_down_cs'],
         breeding_cs= config['breeding_cs'],
         E_thres = config['E_thres'],
+        pb_density = config['pb_density'],
+        scatter_cs_pb=config['cs_pb_scatter'],
         B0 = config['B0'],
         H = config['H'],
         maximum_allowable_J = config['maximum_allowable_J'],

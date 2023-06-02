@@ -4,16 +4,23 @@ import matplotlib.pyplot as plt
 from src.profile import Profile
 from src.source import CDsource
 from src.lawson import Lawson
+from config.neutron_info import *
 from typing import Dict, Optional
 
 class Blanket:
-    def __init__(self, density_6 : float, density_7 : float, slowing_down_cs : float, breeding_cs : float, E_thres : float):
+    def __init__(self, density_6 : float, density_7 : float, slowing_down_cs : float, breeding_cs : float, E_thres : float, density_pb : float, scatter_cs_pb : float):
         self.density_6 = density_6
         self.density_7 = density_7
         self.slownig_down_cs = slowing_down_cs
         self.breeding_cs = breeding_cs    
         self.E_thres = E_thres
-        self.lamda_s = 1 / density_7 / slowing_down_cs
+        self.lamda_s_li = 1 / density_7 / slowing_down_cs
+        
+        self.density_pn = density_pb
+        self.scatter_cs_pb = scatter_cs_pb
+        self.lamda_s_pb = 1 / density_pb / scatter_cs_pb
+        
+        self.lamda_s = (self.lamda_s_li ** (-1) + self.lamda_s_pb ** (-1)) ** (-1)
         
     def compute_lamda_br(self, E : float):
         breeding_cs = self.breeding_cs * math.sqrt(self.E_thres / E)
@@ -158,7 +165,7 @@ class Tokamak:
         self, 
         profile : Profile, 
         source : CDsource,
-        lawson : Lawson, 
+        Q : float,
         k : float, 
         epsilon : float, 
         tri : float, 
@@ -177,6 +184,8 @@ class Tokamak:
         slowing_down_cs : float,
         breeding_cs : float,
         E_thres : float,
+        pb_density : float,
+        scatter_cs_pb : float,
         B0 : float, 
         H : float,
         maximum_allowable_J : float,
@@ -186,7 +195,8 @@ class Tokamak:
         
         self.profile = profile
         self.source = source
-        self.lawson = lawson
+        self.lawson = Lawson()
+        self.Q = Q
         self.k = k
         self.epsilon = epsilon
         self.tri = tri
@@ -209,7 +219,7 @@ class Tokamak:
         self.armour_thickness = armour_thickness
         
         # blanket
-        self.blanket = Blanket(Li_6_density, Li_7_density, slowing_down_cs, breeding_cs, E_thres)
+        self.blanket = Blanket(Li_6_density, Li_7_density, slowing_down_cs, breeding_cs, E_thres, pb_density, scatter_cs_pb)
         in_flux = self.core.compute_neutron_flux()
         out_flux = in_flux * 10 ** (-5)
         in_energy = 14.1
@@ -384,17 +394,19 @@ class Tokamak:
         psi = 10 ** (-2)
         
         n_tau = [self.lawson.compute_n_tau_lower_bound(t, n, B, psi) * 10 ** (-20) for t in T]
-        n_tau_Q = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi) * 10 ** (-20) for t in T]
+        n_tau_Q = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi, self.Q) * 10 ** (-20) for t in T]
+        n_tau_break = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi, 1) * 10 ** (-20) for t in T]
         n *= 10 ** (-20)
         
         fig, ax = plt.subplots(1,1, figsize = (8,6))
         ax.plot(T, n_tau, "k", label = "Lawson criteria (Ignition)")
-        ax.scatter(T_operation, tau_operation * n, c = 'r', label = 'operation state')
-        ax.plot(T, n_tau_Q, "b", label = "Lawson criteria (Q={})".format(self.lawson.Q))
+        ax.plot(T, n_tau_Q, "b", label = "Lawson criteria (Q={})".format(self.Q))
+        ax.plot(T, n_tau_break, "g", label = "Lawson criteria (Breakeven)")
+        ax.scatter(T_operation, tau_operation * n, c = 'r', label = 'Current tokamak design')
     
         ax.set_xlabel("T(unit : keV)")
         ax.set_ylabel("$(N\\tau_E)_{dt}(unit:10^{20}s * m^{-3})$")
-        ax.set_xlim([0,100])
+        ax.set_xlim([5,100])
         ax.set_ylim([0,10])
         ax.legend()
         fig.tight_layout()
@@ -485,6 +497,6 @@ class Tokamak:
                 f.write("\n=============== Operation limit ================")
                 f.write("\n| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(ng, n, n_check))
                 f.write("\n| q-kink : {:.3f}, operation q : {:.3f} | {}".format(q_kink, q, q_check))
-                f.write("\n| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta, b_check))
+                f.write("\n| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta * 100, b_check))
                 f.write("\n| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(f_NC, f_bs, bs_check))
                 f.write("\n================================================")
