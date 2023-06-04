@@ -1,0 +1,5 @@
+# weight
+weights/*
+
+# results pickle
+results/*.pickle

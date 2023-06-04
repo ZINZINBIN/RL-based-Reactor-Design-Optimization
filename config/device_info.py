@@ -7,6 +7,7 @@ config = {
     "p_avg":8.0 * 1.01 * 10 ** 5,
     "conversion_efficiency":0.5,
     "absorption_efficiency":0.8,
+    "betan":2.8,
     "Q":10,
     "k":1.7,
     "epsilon":4,  

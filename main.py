@@ -33,6 +33,7 @@ if __name__ == "__main__":
     tokamak = Tokamak(
         profile,
         source,
+        betan = config['betan'],
         Q = config['Q'],
         k = config['k'],
         epsilon = config['epsilon'],  

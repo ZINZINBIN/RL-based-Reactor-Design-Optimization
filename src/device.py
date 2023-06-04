@@ -165,6 +165,7 @@ class Tokamak:
         self, 
         profile : Profile, 
         source : CDsource,
+        betan : float,
         Q : float,
         k : float, 
         epsilon : float, 
@@ -196,6 +197,7 @@ class Tokamak:
         self.profile = profile
         self.source = source
         self.lawson = Lawson()
+        self.betan = betan
         self.Q = Q
         self.k = k
         self.epsilon = epsilon
@@ -208,11 +210,21 @@ class Tokamak:
         
         self.H = H
         
+        # material properties
+        self.maximum_allowable_J = maximum_allowable_J
+        self.maximum_allowable_stress = maximum_allowable_stress
+        self.maximum_wall_load = maximum_wall_load
+        self.maximum_heat_load = maximum_heat_load
+        
         # core
         self.core = Core(profile, k, epsilon, tri)
         R, a = self.core.compute_desire_geometry(thermal_efficiency, maximum_wall_load, electric_power)
         self.Rc = R
         self.a = a
+        
+        # update profile with exact values
+        self.update_p_avg()
+        self.update_n_avg()
         
         # armour
         self.armour = Shielding(armour_thickness, armour_density, armour_cs, None, maximum_wall_load)
@@ -236,9 +248,51 @@ class Tokamak:
         
         self.total_thickness = self.coil_thickness + self.blanket_thickness + self.armour_thickness + self.a + self.shield_depth
         
+        # update current source 
+        self.source.update_B0(self.B0 * (1-(self.a + self.blanket_thickness + self.shield_depth) / self.Rc))
+        self.source.update_plasma_frequency(self.profile.compute_n(0.8 * self.a, self.a))
+        self.source.update_eb(self.a, self.blanket_thickness, self.Rc)
+        
+    def update_design(self, betan : float, k : float, epsilon : float, electric_power : float, T_avg : float, B0 : float, H : float):
+        
+        # update T_avg
+        self.profile.T_avg = T_avg
+
+        self.betan = betan
+        self.k = k
+        self.epsilon = epsilon
+        self.electric_power = electric_power
+        self.B0 = B0
+        
+        self.H = H
+        
+        # core
+        self.core.profile = self.profile
+        self.core.k = k
+        self.core.epsilon = epsilon
+        R, a = self.core.compute_desire_geometry(self.thermal_efficiency, self.maximum_wall_load, electric_power)
+        self.Rc = R
+        self.a = a
+        
         # update profile with exact values
         self.update_p_avg()
         self.update_n_avg()
+        
+        # blanket
+        in_flux = self.core.compute_neutron_flux()
+        out_flux = in_flux * 10 ** (-5)
+        in_energy = 14.1
+        
+        self.blanket_thickness = self.blanket.compute_desire_depth(in_energy, in_flux, out_flux)
+        
+        # coil
+        self.coil.a = a
+        self.coil.b = self.blanket_thickness
+        self.coil.eps_b = (a+self.blanket_thickness) / R
+        self.coil.B0 = B0 * (1-self.coil.eps_b)
+        self.coil_thickness = self.coil.compute_thickness()
+        
+        self.total_thickness = self.coil_thickness + self.blanket_thickness + self.armour_thickness + self.a + self.shield_depth
         
         # update current source 
         self.source.update_B0(self.B0 * (1-(self.a + self.blanket_thickness + self.shield_depth) / self.Rc))
@@ -336,9 +390,8 @@ class Tokamak:
         return ng
     
     def compute_troyon_beta(self):
-        betan = 2.8
         B = B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
-        beta_max = betan * self.compute_Ip() / self.a / B
+        beta_max = self.betan * self.compute_Ip() / self.a / B
         return beta_max
     
     def compute_bootstrap_fraction(self):
@@ -444,7 +497,7 @@ class Tokamak:
         
         beta = self.compute_beta()
         beta_troyon = self.compute_troyon_beta()
-        b_check = "O" if beta < beta_troyon else "X"
+        b_check = "O" if beta * 100 < beta_troyon else "X"
         
         q = self.compute_q()
         q_kink = 2
@@ -500,3 +553,26 @@ class Tokamak:
                 f.write("\n| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta * 100, b_check))
                 f.write("\n| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(f_NC, f_bs, bs_check))
                 f.write("\n================================================")
+                
+    def get_design_performance(self):
+        
+        result = {
+            "R" : self.Rc,
+            "a" : self.a,
+            "blanket_thickness" : self.blanket_thickness,
+            "coil_thickness" : self.coil_thickness,
+            "n" : self.profile.n_avg / 10 ** 20,
+            "TBR" : self.compute_TBR(),
+            "beta" : self.compute_beta() * 100,
+            "tau" : self.compute_confinement_time(),
+            "Ip" : self.compute_Ip(),
+            "q" : self.compute_q(),
+            "f_BS" : self.compute_bootstrap_fraction(),
+            "Q_parallel" : self.compute_parallel_heat_flux(),
+            "n_g" : self.compute_greenwald_density() / 10 ** 20,
+            "q_kink" : 2,
+            "beta_troyon" : self.compute_troyon_beta(),
+            "f_NC" : self.compute_NC_bootstrap_fraction()
+        }
+        
+        return result
