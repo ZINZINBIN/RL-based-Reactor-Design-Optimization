@@ -435,6 +435,21 @@ class Tokamak:
         f_NC = IB / Ip
         return f_NC
     
+    def check_ignition(self):
+        T_operation = self.profile.T_avg
+        tau_operation = self.compute_confinement_time()
+        
+        B = self.B0 * (1 - (self.a + self.blanket_thickness)/self.Rc)
+        n = self.profile.n_avg 
+        
+        psi = 10 ** (-2)
+        n_tau_lower_bound = self.lawson.compute_n_tau_lower_bound(T_operation, n, B, psi) * 10 ** (-20)
+        n *= 10 ** (-20)
+        n_tau = n * tau_operation
+        
+        is_ignition = True if n_tau > n_tau_lower_bound else False
+        return is_ignition, n_tau, n_tau_lower_bound
+    
     def print_lawson_criteria(self, filename : str):
         
         tau_operation = self.compute_confinement_time()
@@ -447,20 +462,42 @@ class Tokamak:
         psi = 10 ** (-2)
         
         n_tau = [self.lawson.compute_n_tau_lower_bound(t, n, B, psi) * 10 ** (-20) for t in T]
+        n_tau_5 = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi, 5) * 10 ** (-20) for t in T]
         n_tau_Q = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi, self.Q) * 10 ** (-20) for t in T]
         n_tau_break = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi, 1) * 10 ** (-20) for t in T]
         n *= 10 ** (-20)
         
         fig, ax = plt.subplots(1,1, figsize = (8,6))
         ax.plot(T, n_tau, "k", label = "Lawson criteria (Ignition)")
+        ax.plot(T, n_tau_5, "r", label = "Lawson criteria (Q=5)")
         ax.plot(T, n_tau_Q, "b", label = "Lawson criteria (Q={})".format(self.Q))
         ax.plot(T, n_tau_break, "g", label = "Lawson criteria (Breakeven)")
-        ax.scatter(T_operation, tau_operation * n, c = 'r', label = 'Current tokamak design')
+        ax.scatter(T_operation, tau_operation * n, c = 'r', label = 'Tokamak design')
     
         ax.set_xlabel("T(unit : keV)")
         ax.set_ylabel("$(N\\tau_E)_{dt}(unit:10^{20}s * m^{-3})$")
         ax.set_xlim([5,100])
         ax.set_ylim([0,10])
+        ax.legend()
+        fig.tight_layout()
+        plt.savefig(filename)
+        
+    def print_profile(self, filename :str):
+        n = 64
+        r_a = np.linspace(0,1,n)
+        p_profile = self.profile.compute_p_profile(n) / self.profile.p_avg
+        T_profile = self.profile.compute_T_profile(n) / self.profile.T_avg
+        n_profile = self.profile.compute_n_profile(n) / self.profile.n_avg
+        
+        fig, ax = plt.subplots(1,1, figsize = (8,6))
+        ax.plot(r_a, p_profile, "k", label = "p-profile")
+        ax.plot(r_a, T_profile, "r", label = "T-profile")
+        ax.plot(r_a, n_profile, "b", label = "n-profile")
+    
+        ax.set_xlabel("Normalized radius")
+        ax.set_ylabel("Normalized quantity")
+        ax.set_xlim([0,1.0])
+        ax.set_ylim([0,3.0])
         ax.legend()
         fig.tight_layout()
         plt.savefig(filename)
@@ -473,13 +510,13 @@ class Tokamak:
         print("=============== Structure design ===============\n")
         print("| CS coil | TF coil | shield | blanket | 1st wall ) core ) 1st wall ) blanket ) shield ) TF coil")
         print("\n================ Geometric info ================")
-        print("| Major radius R : {:.3f}".format(self.Rc))
-        print("| Minor radius a : {:.3f}".format(self.a))
-        print("| Armour : {:.3f}".format(self.armour_thickness))
-        print("| Blanket : {:.3f}".format(self.blanket_thickness))
-        print("| Shield : {:.3f}".format(self.shield_depth))
-        print("| TF coil : {:.3f}".format(self.coil_thickness))
-        print("| total thickness : {:.3f}".format(self.total_thickness))
+        print("| Major radius R : {:.3f} m".format(self.Rc))
+        print("| Minor radius a : {:.3f} m".format(self.a))
+        print("| Armour : {:.3f} m".format(self.armour_thickness))
+        print("| Blanket : {:.3f} m".format(self.blanket_thickness))
+        print("| Shield : {:.3f} m".format(self.shield_depth))
+        print("| TF coil : {:.3f} m".format(self.coil_thickness))
+        print("| total thickness : {:.3f} m".format(self.total_thickness))
         print("============== Physical parameters ==============")
         print("| Magnetic field : {:.3f}".format(self.B0))
         print("| Elongation : {:.3f}".format(self.k))
@@ -494,6 +531,8 @@ class Tokamak:
         print("| q : {:.3f}".format(self.compute_q()))
         print("| f_bs : {:.3f}".format(self.compute_bootstrap_fraction()))
         print("| Q-parallel : {:.3f} MW-T/m".format(self.compute_parallel_heat_flux()))
+        print("| T_avg : {:.3f} keV".format(self.profile.T_avg))
+        print("| n_avg : {:.3f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
         
         beta = self.compute_beta()
         beta_troyon = self.compute_troyon_beta()
@@ -511,11 +550,15 @@ class Tokamak:
         f_bs = self.compute_bootstrap_fraction()
         bs_check = "O" if f_NC > f_bs else "X"
         
+        is_ignition, n_tau, n_tau_criteria = self.check_ignition()
+        ignition_check = "O" if is_ignition else "X"
+        
         print("=============== Operation limit ================")
         print("| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(ng, n, n_check))
         print("| q-kink : {:.3f}, operation q : {:.3f} | {}".format(q_kink, q, q_check))
         print("| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta * 100, b_check))
         print("| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(f_NC, f_bs, bs_check))
+        print("| Lawson nTau : {:.3f} , operation nTau: {:.3f} | {}".format(n_tau_criteria, n_tau, ignition_check))
         print("================================================")
         
         if filename:
@@ -526,15 +569,15 @@ class Tokamak:
                 f.write("\n=============== Structure design ===============\n")
                 f.write("\n| CS coil | TF coil | shield | blanket | 1st wall ) core ) 1st wall ) blanket ) shield ) TF coil")
                 f.write("\n================ Geometric info ================")
-                f.write("\n| Major radius R : {:.3f}".format(self.Rc))
-                f.write("\n| Minor radius a : {:.3f}".format(self.a))
-                f.write("\n| Armour : {:.3f}".format(self.armour_thickness))
-                f.write("\n| Blanket : {:.3f}".format(self.blanket_thickness))
-                f.write("\n| Shield : {:.3f}".format(self.shield_depth))
-                f.write("\n| TF coil : {:.3f}".format(self.coil_thickness))
-                f.write("\n| total thickness : {:.3f}".format(self.total_thickness))
+                f.write("\n| Major radius R : {:.3f} m".format(self.Rc))
+                f.write("\n| Minor radius a : {:.3f} m".format(self.a))
+                f.write("\n| Armour : {:.3f} m".format(self.armour_thickness))
+                f.write("\n| Blanket : {:.3f} m".format(self.blanket_thickness))
+                f.write("\n| Shield : {:.3f} m".format(self.shield_depth))
+                f.write("\n| TF coil : {:.3f} m".format(self.coil_thickness))
+                f.write("\n| total thickness : {:.3f} m".format(self.total_thickness))
                 f.write("\n============== Physical parameters ==============")
-                f.write("\n| Magnetic field : {:.3f}".format(self.B0))
+                f.write("\n| Magnetic field : {:.3f} T".format(self.B0))
                 f.write("\n| Elongation : {:.3f}".format(self.k))
                 f.write("\n| Aspect ratio : {:.3f}".format(self.epsilon))
                 f.write("\n| Triangularity : {:.3f}".format(self.tri))
@@ -547,14 +590,19 @@ class Tokamak:
                 f.write("\n| q : {:.3f}".format(self.compute_q()))
                 f.write("\n| f_bs : {:.3f}".format(self.compute_bootstrap_fraction()))
                 f.write("\n| Q-parallel : {:.3f} MW-T/m".format(self.compute_parallel_heat_flux()))
+                f.write("\n| T_avg : {:.3f} keV".format(self.profile.T_avg))
+                f.write("\n| n_avg : {:.3f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
                 f.write("\n=============== Operation limit ================")
                 f.write("\n| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(ng, n, n_check))
                 f.write("\n| q-kink : {:.3f}, operation q : {:.3f} | {}".format(q_kink, q, q_check))
                 f.write("\n| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta * 100, b_check))
                 f.write("\n| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(f_NC, f_bs, bs_check))
+                f.write("\n| Lawson nTau : {:.3f} , operation n*Tau: {:.3f} | {}".format(n_tau_criteria, n_tau, ignition_check))
                 f.write("\n================================================")
                 
     def get_design_performance(self):
+        
+        _, n_tau, n_tau_lower = self.check_ignition()
         
         result = {
             "R" : self.Rc,
@@ -572,7 +620,160 @@ class Tokamak:
             "n_g" : self.compute_greenwald_density() / 10 ** 20,
             "q_kink" : 2,
             "beta_troyon" : self.compute_troyon_beta(),
-            "f_NC" : self.compute_NC_bootstrap_fraction()
+            "f_NC" : self.compute_NC_bootstrap_fraction(),
+            "n_tau" : n_tau,
+            "n_tau_lower" : n_tau_lower,
         }
         
         return result
+    
+    def print_overall_performance(self, filename : str):
+        
+        # original point
+        result = self.get_design_performance()
+        a_origin = self.a
+        eps_origin = self.epsilon
+        H_origin = self.H
+        B_origin = self.B0
+        T_avg_origin = self.profile.T_avg
+        electric_power_origin = self.electric_power
+        k_origin = self.k
+        betan_origin = self.betan
+        
+        n_limit_origin = result['n'] / result['n_g']
+        f_limit_origin = result['f_NC'] / result['f_BS']
+        q_limit_origin = result['q_kink'] / result['q']
+        b_limit_origin = result['beta'] / result['beta_troyon']
+        
+        fig, axes = plt.subplots(2,2, figsize = (12,12))
+        axes = axes.ravel()
+        
+        n_points = 128
+        
+        # variable : a
+        eps_list = np.linspace(3.0, 5.0, n_points)
+    
+        n_limits = []
+        b_limits = []
+        q_limits = []
+        f_limits = []
+        a_list = []
+        
+        for eps in eps_list:
+            self.update_design(betan_origin, k_origin, eps, electric_power_origin, T_avg_origin, B_origin, H_origin)
+            try:
+                result = self.get_design_performance()
+                n_limits.append(result['n'] / result['n_g'])
+                b_limits.append(result['beta'] / result['beta_troyon'])
+                q_limits.append(result['q_kink'] / result['q'])
+                f_limits.append(result['f_BS'] / result['f_NC'])
+                a_list.append(result['a'])
+            except:
+                continue
+        
+        axes[0].plot(a_list, n_limits, 'k', label = '$n/n_G$')
+        axes[0].plot(a_list, b_limits, 'r', label = '$\\beta/\\beta_T$')
+        axes[0].plot(a_list, f_limits, 'b', label = '$f_{BS}/f_{NC}$')
+        axes[0].plot(a_list, q_limits, 'g', label = '$q_K/q$')
+        axes[0].axvline(a_origin, 0, 1, c='k', label = 'Designed tokamak')
+        axes[0].set_xlabel("a[m]")
+        axes[0].set_ylim([0, 2.0])
+        axes[0].legend(loc = 'upper right')
+        axes[0].fill_between(a_list, 1, 2.0, facecolor = 'gray')
+        
+        # variable : H
+        H_list_ = np.linspace(1.0, 1.5, n_points)
+        
+        n_limits = []
+        b_limits = []
+        q_limits = []
+        f_limits = []
+        H_list = []
+        
+        for H in H_list_:
+            self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B_origin, H)
+            try:
+                result = self.get_design_performance()
+                n_limits.append(result['n'] / result['n_g'])
+                b_limits.append(result['beta'] / result['beta_troyon'])
+                q_limits.append(result['q_kink'] / result['q'])
+                f_limits.append(result['f_BS'] / result['f_NC'])
+                H_list.append(H)
+            except:
+                continue
+        
+        axes[1].plot(H_list, n_limits, 'k', label = '$n/n_G$')
+        axes[1].plot(H_list, b_limits, 'r', label = '$\\beta/\\beta_T$')
+        axes[1].plot(H_list, f_limits, 'b', label = '$f_{BS}/f_{NC}$')
+        axes[1].plot(H_list, q_limits, 'g', label = '$q_K/q$')
+        axes[1].axvline(H_origin, 0, 1, c='k', label = 'Designed tokamak')
+        axes[1].set_xlabel("H")
+        axes[1].set_ylim([0, 2.0])
+        axes[1].legend(loc = 'upper right')
+        axes[1].fill_between(H_list, 1, 2.0, facecolor = 'gray')
+        
+        # variable : B
+        B_list_ = np.linspace(10, 20, n_points)
+        
+        n_limits = []
+        b_limits = []
+        q_limits = []
+        f_limits = []
+        B_list = []
+        
+        for B in B_list_:
+            self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B, H_origin)
+            try:
+                result = self.get_design_performance()
+                n_limits.append(result['n'] / result['n_g'])
+                b_limits.append(result['beta'] / result['beta_troyon'])
+                q_limits.append(result['q_kink'] / result['q'])
+                f_limits.append(result['f_BS'] / result['f_NC'])
+                B_list.append(B)
+            except:
+                continue
+        
+        axes[2].plot(B_list, n_limits, 'k', label = '$n/n_G$')
+        axes[2].plot(B_list, b_limits, 'r', label = '$\\beta/\\beta_T$')
+        axes[2].plot(B_list, f_limits, 'b', label = '$f_{BS}/f_{NC}$')
+        axes[2].plot(B_list, q_limits, 'g', label = '$q_K/q$')
+        axes[2].axvline(B_origin, 0, 1, c='k', label = 'Designed tokamak')
+        axes[2].set_xlabel("$B_{max}[T]$")
+        axes[2].set_ylim([0, 2.0])
+        axes[2].legend(loc = 'upper right')
+        axes[2].fill_between(B_list, 1, 2.0, facecolor = 'gray')
+        
+        # variable : output
+        output_list_ = np.linspace(500, 2000, n_points)
+        
+        n_limits = []
+        b_limits = []
+        q_limits = []
+        f_limits = []
+        output_list = []
+        
+        for output in output_list_:
+            self.update_design(betan_origin, k_origin, eps_origin, output * 10 ** 6, T_avg_origin, B_origin, H_origin)
+            try:
+                result = self.get_design_performance()
+                n_limits.append(result['n'] / result['n_g'])
+                b_limits.append(result['beta'] / result['beta_troyon'])
+                q_limits.append(result['q_kink'] / result['q'])
+                f_limits.append(result['f_BS'] / result['f_NC'])
+                output_list.append(output)
+            except:
+                continue
+        
+        axes[3].plot(output_list, n_limits, 'k', label = '$n/n_G$')
+        axes[3].plot(output_list, b_limits, 'r', label = '$\\beta/\\beta_T$')
+        axes[3].plot(output_list, f_limits, 'b', label = '$f_{BS}/f_{NC}$')
+        axes[3].plot(output_list, q_limits, 'g', label = '$q_K/q$')
+        axes[3].axvline(electric_power_origin / 10 ** 6, 0, 1, c='k', label = 'Designed tokamak')
+        axes[3].set_xlabel("$P_E[MW]$")
+        axes[3].set_ylim([0, 2.0])
+        axes[3].legend(loc = 'upper right')
+        axes[3].fill_between(output_list, 1, 2.0, facecolor = 'gray')
+        
+        # save file
+        fig.tight_layout()
+        plt.savefig(filename)

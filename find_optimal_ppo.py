@@ -2,9 +2,8 @@ from src.device import Tokamak
 from src.profile import Profile
 from src.source import CDsource
 from src.env import Enviornment
-from src.rl.sac import train_sac, GaussianPolicy, TwinnedQNetwork
+from src.rl.ppo import train_ppo, ActorCritic, ReplayBufferPPO
 from src.rl.reward import RewardSender
-from src.rl.buffer import ReplayBuffer
 from config.device_info import config
 import torch
 import pickle
@@ -15,7 +14,7 @@ import os
 if torch.cuda.is_available():
     print("cuda available : ", torch.cuda.is_available())
     print("cuda device count : ", torch.cuda.device_count())
-    device = "cuda:2"
+    device = "cuda:1"
 else:
     device = "cpu" 
     
@@ -97,59 +96,38 @@ if __name__ == "__main__":
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
     
     # policy and value network
-    policy_network = GaussianPolicy(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7)
-    value_network = TwinnedQNetwork(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7)
-    target_value_network = TwinnedQNetwork(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7)
+    policy_network = ActorCritic(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7, std = 0.1)
     
     # gpu allocation
     policy_network.to(device)
-    value_network.to(device)
-    target_value_network.to(device)
-    
-    # setting
-    log_alpha = torch.zeros(1, requires_grad=True)
-    target_entropy = -torch.prod(torch.Tensor((7,)))
     
     # optimizer    
-    q1_optimizer = torch.optim.AdamW(value_network.Q1.parameters(), lr = 0.001)
-    q2_optimizer = torch.optim.AdamW(value_network.Q2.parameters(), lr = 0.001)
     policy_optimizer = torch.optim.AdamW(policy_network.parameters(), lr = 0.001)
-    alpha_optimizer = torch.optim.AdamW([log_alpha], lr = 0.001)
 
     # loss function for critic network
     value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'mean')
     
     # memory
-    memory = ReplayBuffer(100000)
+    memory = ReplayBufferPPO(1000)
     
     import numpy as np
-    result = train_sac(
+    result = train_ppo(
         env, 
         memory,
         policy_network,
-        value_network,
-        target_value_network,
-        target_entropy,
-        log_alpha,
         policy_optimizer,
-        q1_optimizer,
-        q2_optimizer,
-        alpha_optimizer,
         value_loss_fn,
-        32,
-        8,
         0.995,
+        0.1,
+        0.1,
         device,
-        -np.inf,
-        np.inf,
-        0.25,
         100000,
         128,
-        "./weights/sac_best.pt",
-        "./weights/sac_last.pt",
+        "./weights/ppo_best.pt",
+        "./weights/ppo_last.pt",
     )
     
-    with open('./results/params_search_sac.pickle', 'wb') as file:
+    with open('./results/params_search_ppo.pickle', 'wb') as file:
         pickle.dump(result, file)
         
     env.close()

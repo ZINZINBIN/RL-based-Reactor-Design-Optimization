@@ -32,9 +32,9 @@ class Actor(nn.Module):
         self.max_values = [action_range[key][1] for key in action_range.keys()]
         
     def forward(self, x : torch.Tensor):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = F.relu(self.fc3(x))
+        x = F.tanh(self.fc1(x))
+        x = F.tanh(self.fc2(x))
+        x = F.tanh(self.fc3(x))
         x = self.fc4(x)
         x = torch.clamp(x, min = torch.Tensor(self.min_values).to(x.device), max = torch.Tensor(self.max_values).to(x.device))
         return x
@@ -50,9 +50,9 @@ class Critic(nn.Module):
         
     def forward(self, state:torch.Tensor, action : torch.Tensor):
         x = torch.cat([state, action], dim = 1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = F.relu(self.fc3(x))
+        x = F.tanh(self.fc1(x))
+        x = F.tanh(self.fc2(x))
+        x = F.tanh(self.fc3(x))
         x = self.fc4(x)
         return x
     
@@ -239,6 +239,9 @@ def train_ddpg(
 
         for t in range(search_size):
             
+            state = env.init_state
+            ctrl = env.init_action
+            
             state_tensor = np.array([state[key] for key in state.keys()] + [ctrl[key] for key in ctrl.keys()])
             state_tensor = torch.from_numpy(state_tensor).unsqueeze(0).float()
         
@@ -293,8 +296,8 @@ def train_ddpg(
         )
                 
         if i_episode % verbose == 0:
-            print(r"| episode:{} | reward : {} | tau : {:.3f} | beta limit : {} | q limit : {} | n limit {} | f_bs limit : {}".format(
-                i_episode+1, env.rewards[-1], env.taus[-1], env.beta_limits[-1], env.q_limits[-1], env.n_limits[-1], env.f_limits[-1]
+            print(r"| episode:{} | reward : {} | tau : {:.3f} | beta limit : {} | q limit : {} | n limit {} | f_bs limit : {} | ignition : {}".format(
+                i_episode+1, env.rewards[-1], env.taus[-1], env.beta_limits[-1], env.q_limits[-1], env.n_limits[-1], env.f_limits[-1], env.i_limits[-1]
             ))
             env.tokamak.print_info(None)
 
@@ -316,9 +319,8 @@ def train_ddpg(
         "beta_limit" : env.beta_limits,
         "q_limit" : env.q_limits,
         "n_limit" : env.n_limits,
-        "f_limit" : env.f_limits
+        "f_limit" : env.f_limits,
+        "i_limit" : env.i_limits
     }
     
-    env.close()
-
     return result

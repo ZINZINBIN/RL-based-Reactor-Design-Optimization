@@ -18,6 +18,7 @@ class Enviornment(gym.Env):
         self.q_limits = []
         self.n_limits = []
         self.f_limits = []
+        self.i_limits = []
         
         self.done = False
         self.current_state = None
@@ -32,11 +33,18 @@ class Enviornment(gym.Env):
         action['electric_power'] *= 10 ** 6
         
         # tokamak variable parameter update
-        self.tokamak.update_design(action['betan'], action['k'], action['epsilon'], action['electric_power'], action['T_avg'], action['B0'], action['H'])
-        state = self.tokamak.get_design_performance()
-        
-        reward = self.reward_sender(state)
-        
+        try:
+            self.tokamak.update_design(action['betan'], action['k'], action['epsilon'], action['electric_power'], action['T_avg'], action['B0'], action['H'])
+            state = self.tokamak.get_design_performance()
+            reward = self.reward_sender(state)
+            
+        except:
+            state = None
+            reward = None
+            
+        if state is None or reward is None:
+            return None, None, None, None
+            
         # update state
         self.current_action = action
         self.current_state = state
@@ -50,12 +58,14 @@ class Enviornment(gym.Env):
         is_q_limit = state['q'] / state['q_kink'] > 1
         is_n_limit = state['n'] / state['n_g'] < 1
         is_f_limit = state['f_NC'] / state['f_BS'] > 1
+        is_i_limit = state['n_tau'] / state['n_tau_lower'] > 1
         
         self.taus.append(state['tau'])
         self.beta_limits.append(is_beta_limit)
         self.q_limits.append(is_q_limit)
         self.n_limits.append(is_n_limit)
         self.f_limits.append(is_f_limit)
+        self.i_limits.append(is_i_limit)
         
         return state, reward, False, {}
     
@@ -72,6 +82,7 @@ class Enviornment(gym.Env):
         self.q_limits.clear()
         self.n_limits.clear()
         self.f_limits.clear()
+        self.i_limits.clear()
         
         self.current_action = None
         self.current_state = None

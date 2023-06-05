@@ -73,11 +73,13 @@ if __name__ == "__main__":
         w_density=1.0,
         w_q = 0.5,
         w_bs = 0.5,
+        w_i = 0.5,
         tau_r = 1.0,
         beta_r = 1.0,
         q_r = 1.0,
         n_r = 1.0,
-        f_r = 1.0
+        f_r = 1.0,
+        i_r = 1.0
     )
     
     init_action = {
@@ -95,11 +97,11 @@ if __name__ == "__main__":
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
     
     # policy and value network
-    policy_network = Actor(input_dim = 16 + 7, mlp_dim = 128, n_actions = 7)
-    target_policy_network = Actor(input_dim = 16 + 7, mlp_dim = 128, n_actions = 7)
+    policy_network = Actor(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7)
+    target_policy_network = Actor(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7)
     
-    value_network = Critic(input_dim = 16 + 7, mlp_dim = 128, n_actions = 7)
-    target_value_network = Critic(input_dim = 16 + 7, mlp_dim = 128, n_actions = 7)
+    value_network = Critic(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7)
+    target_value_network = Critic(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7)
     
     # gpu allocation
     policy_network.to(device)
@@ -109,8 +111,8 @@ if __name__ == "__main__":
     target_value_network.to(device)
     
     # optimizer
-    value_optimizer = torch.optim.AdamW(value_network.parameters(), lr = 1e-2)
-    policy_optimizer = torch.optim.AdamW(policy_network.parameters(), lr = 1e-2)
+    value_optimizer = torch.optim.AdamW(value_network.parameters(), lr = 1e-3)
+    policy_optimizer = torch.optim.AdamW(policy_network.parameters(), lr = 1e-3)
 
     # loss function for critic network
     value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'mean')
@@ -144,3 +146,5 @@ if __name__ == "__main__":
     
     with open('./results/params_search_ddpg.pickle', 'wb') as file:
         pickle.dump(result, file)
+        
+    env.close()

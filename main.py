@@ -1,7 +1,7 @@
 from src.device import Tokamak
 from src.profile import Profile
 from src.source import CDsource
-from config.device_info import config
+from config.device_info import config, config_by_rl
 import argparse
 import os
 
@@ -15,6 +15,8 @@ def parsing():
 if __name__ == "__main__":
     
     args = parsing()
+    
+    # config = config_by_rl
     
     profile = Profile(
         nu_T = config["nu_T"],
@@ -64,4 +66,6 @@ if __name__ == "__main__":
     
     # save file
     tokamak.print_info(os.path.join(args['save_dir'], "{}_stat.txt".format(args['tag'])))
+    tokamak.print_profile(os.path.join(args['save_dir'], "{}_profile.png".format(args['tag'])))
     tokamak.print_lawson_criteria(os.path.join(args['save_dir'], "{}_lawson.png".format(args['tag'])))
+    tokamak.print_overall_performance(os.path.join(args['save_dir'], "{}_overall.png".format(args['tag'])))

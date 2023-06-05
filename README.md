@@ -5,15 +5,26 @@ This is a git repository of python codes for designing fusion reactors. Based on
 <div>
     <p float = 'left'>
         <img src="/results/reference_lawson.png"  width="360" height="320">
+        <img src="/results/reference_overall.png"  width="360" height="320">
     </p>
 </div>
 
 ## How to execute
-```
-    python3 main.py --save_dir {directory name} --tag {tag name}
-```
+### Computation of the desired tokamak design
+- Exectue main.py with modifying the configuration of the device in config/device_info.py
+- You can print the detail of the tokamak design and its performance from Lawson criteria
+    ```
+        python3 main.py --save_dir {directory name} --tag {tag name}
+    ```
+### Find the optimal tokamak design with reinforcement learning
+- We use single-step PPO algorithm to find out the optimal tokamak design which satisfies operation limits
+- Our aim is to acheive high energy confinement by designing the optimal tokamak based on RL algorithm
+    ```
+        python3 find_optimal.py
+    ```
 
 ## Reference
 - Designing a tokamak fusion reactor : How does plasma physics fit in? (J.P.Freidberg, F.J.Mangiarotti, J.Minervini, Physics of plasmas, 2015)
 - Spectial topics on fusion reactor enigneering, Jisung Kang, KFE
 - Lecture note on Fusion Reactor Technology 1, Yong-su Na, SNU
+- Direct shape optimization through deep reinforcement learning, Jonathan Viquerat et al
