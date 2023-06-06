@@ -1,7 +1,7 @@
 from src.device import Tokamak
 from src.profile import Profile
 from src.source import CDsource
-from config.device_info import config, config_by_rl
+from config.device_info import config, config_by_rl, config_liquid
 import argparse
 import os
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     
     args = parsing()
     
-    # config = config_by_rl
+    config = config_liquid
     
     profile = Profile(
         nu_T = config["nu_T"],
@@ -57,11 +57,13 @@ if __name__ == "__main__":
         E_thres = config['E_thres'],
         pb_density = config['pb_density'],
         scatter_cs_pb=config['cs_pb_scatter'],
+        multi_cs_pb=config['cs_pb_multi'],
         B0 = config['B0'],
         H = config['H'],
         maximum_allowable_J = config['maximum_allowable_J'],
         maximum_allowable_stress = config['maximum_allowable_stress'],
-        RF_recirculating_rate= config['RF_recirculating_rate']
+        RF_recirculating_rate= config['RF_recirculating_rate'],
+        flux_ratio = config['flux_ratio']
     )
     
     # save file

@@ -22,7 +22,7 @@ default_action_range = {
     "k" : [1.5, 2.5],
     "epsilon" : [3.0, 5.0],
     "electric_power" : [1000, 1500],
-    "T_avg" : [10, 100],
+    "T_avg" : [10, 15],
     "B0" : [13, 16],
     "H" : [1.0, 1.5]
 }

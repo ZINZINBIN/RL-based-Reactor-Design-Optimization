@@ -8,7 +8,7 @@ from config.neutron_info import *
 from typing import Dict, Optional
 
 class Blanket:
-    def __init__(self, density_6 : float, density_7 : float, slowing_down_cs : float, breeding_cs : float, E_thres : float, density_pb : float, scatter_cs_pb : float):
+    def __init__(self, density_6 : float, density_7 : float, slowing_down_cs : float, breeding_cs : float, E_thres : float, density_pb : float, scatter_cs_pb : float, multi_cs_pb : float):
         self.density_6 = density_6
         self.density_7 = density_7
         self.slownig_down_cs = slowing_down_cs
@@ -18,9 +18,16 @@ class Blanket:
         
         self.density_pn = density_pb
         self.scatter_cs_pb = scatter_cs_pb
-        self.lamda_s_pb = 1 / density_pb / scatter_cs_pb
+        self.multi_cs_pb = multi_cs_pb
         
-        self.lamda_s = (self.lamda_s_li ** (-1) + self.lamda_s_pb ** (-1)) ** (-1)
+        if density_pb is None:
+            self.lamda_s_pb = None
+            self.lamda_m_pb = None
+            self.lamda_s = self.lamda_s_li
+        else:
+            self.lamda_s_pb = 1 / density_pb / scatter_cs_pb
+            self.lamda_m_pb = 1 / density_pb / multi_cs_pb
+            self.lamda_s = (self.lamda_s_li ** (-1) + self.lamda_s_pb ** (-1)) ** (-1)
         
     def compute_lamda_br(self, E : float):
         breeding_cs = self.breeding_cs * math.sqrt(self.E_thres / E)
@@ -34,12 +41,20 @@ class Blanket:
     def compute_neutron_flux(self, in_flux : float, in_energy:float, x : float):    
         alpha_B = 1 / (2 * self.lamda_s * self.density_6 * self.breeding_cs) * math.sqrt(in_energy / self.E_thres)
         flux = in_flux * math.exp((1-math.exp(x/2/self.lamda_s)) / alpha_B)
+        
+        if self.lamda_m_pb:
+            flux = self.compute_multiplier_effect(flux, x)
+        
         return flux
 
     def compute_desire_depth(self, in_energy : float, in_flux : float, out_flux : float):
         alpha_B = 1 / (2 * self.lamda_s * self.density_6 * self.breeding_cs) * math.sqrt(in_energy / self.E_thres)
         depth = self.lamda_s * math.log(1+alpha_B * math.log(in_flux / out_flux))
         return depth
+    
+    def compute_multiplier_effect(self, in_flux : float, x : float):
+        flux = in_flux * math.exp(math.log(2) * 0.5 * x / self.lamda_m_pb)
+        return flux
 
 # ShieldingModule : Shield / First wall / Vaccuum Chamber 
 class Shielding:
@@ -187,11 +202,13 @@ class Tokamak:
         E_thres : float,
         pb_density : float,
         scatter_cs_pb : float,
+        multi_cs_pb : float,
         B0 : float, 
         H : float,
         maximum_allowable_J : float,
         maximum_allowable_stress : float,
         RF_recirculating_rate : float,
+        flux_ratio : float,
         ):
         
         self.profile = profile
@@ -205,6 +222,7 @@ class Tokamak:
         self.thermal_efficiency = thermal_efficiency
         self.electric_power = electric_power
         self.RF_recirculating_rate = RF_recirculating_rate
+        self.flux_ratio = flux_ratio
         
         self.B0 = B0
         
@@ -231,10 +249,13 @@ class Tokamak:
         self.armour_thickness = armour_thickness
         
         # blanket
-        self.blanket = Blanket(Li_6_density, Li_7_density, slowing_down_cs, breeding_cs, E_thres, pb_density, scatter_cs_pb)
+        self.blanket = Blanket(Li_6_density, Li_7_density, slowing_down_cs, breeding_cs, E_thres, pb_density, scatter_cs_pb, multi_cs_pb)
         in_flux = self.core.compute_neutron_flux()
-        out_flux = in_flux * 10 ** (-5)
-        in_energy = 14.1
+        in_energy = self.armour.compute_neutron_energy(14.1, armour_thickness)
+        
+        # armour shielding
+        in_flux = self.armour.compute_neutron_flux(in_flux, in_energy, armour_thickness)
+        out_flux = in_flux * flux_ratio
         
         self.blanket_thickness = self.blanket.compute_desire_depth(in_energy, in_flux, out_flux)
         
@@ -278,11 +299,14 @@ class Tokamak:
         self.update_p_avg()
         self.update_n_avg()
         
-        # blanket
+        # armour shielding
         in_flux = self.core.compute_neutron_flux()
-        out_flux = in_flux * 10 ** (-5)
-        in_energy = 14.1
+        in_energy = self.armour.compute_neutron_energy(14.1, self.armour_thickness)
         
+        in_flux = self.armour.compute_neutron_flux(in_flux, in_energy, self.armour_thickness)
+        out_flux = in_flux * self.flux_ratio
+        
+        # blanket
         self.blanket_thickness = self.blanket.compute_desire_depth(in_energy, in_flux, out_flux)
         
         # coil
@@ -331,22 +355,35 @@ class Tokamak:
         dt_rate = 0.25 * Ndt ** 2 * sig_v * self.core.compute_core_volume()
         
         En = 14.1
-        Eout = self.blanket.compute_neutron_energy(En, self.blanket_thickness)
         
         in_flux = self.core.compute_neutron_flux()
+        in_flux = self.armour.compute_neutron_flux(in_flux, None, self.armour_thickness)
+        
+        En = self.armour.compute_neutron_energy(En, self.armour_thickness)
         const = self.blanket.breeding_cs * self.blanket.density_6 * 2 * self.blanket.lamda_s
         
         def _compute_neutron_flux_E(E):
             return in_flux * np.exp((-1) * const * (np.sqrt(self.blanket.E_thres / E) - np.sqrt(self.blanket.E_thres / En)))
         
         def _compute_neutron_energy(x):
-            return En * np.exp((-1) * x / self.blanket.lamda_s)
+            if self.blanket.density_pn is not None:
+                const_m = np.exp(-x / self.blanket.lamda_m_pb)
+            else:
+                const_m = 1
+            return En * np.exp((-1) * x / self.blanket.lamda_s) * const_m
         
-        x_arr = np.linspace(self.armour_thickness, self.blanket_thickness + self.armour_thickness, 64)
+        x_arr = np.linspace(0, self.blanket_thickness, 64)
         E_arr = _compute_neutron_energy(x_arr)
         
-        tr_generation_arr = self.blanket.breeding_cs * self.blanket.density_6 * np.sqrt(self.blanket.E_thres / E_arr) * _compute_neutron_flux_E(E_arr)
-        tr_generation_arr *= math.sqrt((1 + self.k ** 2) / 2) * 2 * math.pi * (x_arr + self.a) * self.Rc * math.pi * 2 * (x_arr[1] - x_arr[0]) * self.k
+        if self.blanket.density_pn is not None:
+            multiplier = 1.7
+        else:
+            multiplier = 1
+        
+        tr_generation_arr = self.blanket.breeding_cs * self.blanket.density_6 * np.sqrt(self.blanket.E_thres / E_arr) * _compute_neutron_flux_E(E_arr) * multiplier
+        tr_generation_arr += 20 * 10 ** (-31) * self.blanket.density_7 * _compute_neutron_flux_E(E_arr)
+        
+        tr_generation_arr *= math.sqrt((1 + self.k ** 2) / 2) * 2 * math.pi * (x_arr + self.a + self.armour_thickness) * self.Rc * math.pi * 2 * (x_arr[1] - x_arr[0]) * self.k
         tr_generation = np.sum(tr_generation_arr)
         TBR = tr_generation / dt_rate
         
@@ -372,7 +409,7 @@ class Tokamak:
     def compute_q(self):
         Ip = self.compute_Ip()
         B = B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
-        q = 2 * math.pi * self.a ** 2 * B * (1 + self.k ** 2) * 0.5
+        q = 2 * math.pi * self.a ** 2 * B * (1 + self.k ** 2)
         q /= 4 * math.pi * 10 ** (-7) * self.Rc * Ip * 10 ** 6
         return q
     
@@ -521,7 +558,6 @@ class Tokamak:
         print("| Magnetic field : {:.3f}".format(self.B0))
         print("| Elongation : {:.3f}".format(self.k))
         print("| Aspect ratio : {:.3f}".format(self.epsilon))
-        print("| Triangularity : {:.3f}".format(self.tri))
         print("| Thermal efficiency : {:.3f}".format(self.thermal_efficiency))
         print("| Electric power : {:.3f} MW".format(self.electric_power / 10**6))
         print("| TBR : {:.3f}".format(self.compute_TBR()))
@@ -530,9 +566,9 @@ class Tokamak:
         print("| Ip : {:.3f} MA".format(self.compute_Ip()))
         print("| q : {:.3f}".format(self.compute_q()))
         print("| f_bs : {:.3f}".format(self.compute_bootstrap_fraction()))
-        print("| Q-parallel : {:.3f} MW-T/m".format(self.compute_parallel_heat_flux()))
-        print("| T_avg : {:.3f} keV".format(self.profile.T_avg))
-        print("| n_avg : {:.3f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
+        print("| Q-parallel : {:.2f} MW-T/m".format(self.compute_parallel_heat_flux()))
+        print("| T_avg : {:.2f} keV".format(self.profile.T_avg))
+        print("| n_avg : {:.2f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
         
         beta = self.compute_beta()
         beta_troyon = self.compute_troyon_beta()
@@ -580,7 +616,6 @@ class Tokamak:
                 f.write("\n| Magnetic field : {:.3f} T".format(self.B0))
                 f.write("\n| Elongation : {:.3f}".format(self.k))
                 f.write("\n| Aspect ratio : {:.3f}".format(self.epsilon))
-                f.write("\n| Triangularity : {:.3f}".format(self.tri))
                 f.write("\n| Thermal efficiency : {:.3f}".format(self.thermal_efficiency))
                 f.write("\n| Electric power : {:.3f} MW".format(self.electric_power / 10**6))
                 f.write("\n| TBR : {:.3f}".format(self.compute_TBR()))
@@ -589,9 +624,9 @@ class Tokamak:
                 f.write("\n| Ip : {:.3f} MA".format(self.compute_Ip()))
                 f.write("\n| q : {:.3f}".format(self.compute_q()))
                 f.write("\n| f_bs : {:.3f}".format(self.compute_bootstrap_fraction()))
-                f.write("\n| Q-parallel : {:.3f} MW-T/m".format(self.compute_parallel_heat_flux()))
-                f.write("\n| T_avg : {:.3f} keV".format(self.profile.T_avg))
-                f.write("\n| n_avg : {:.3f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
+                f.write("\n| Q-parallel : {:.2f} MW-T/m".format(self.compute_parallel_heat_flux()))
+                f.write("\n| T_avg : {:.2f} keV".format(self.profile.T_avg))
+                f.write("\n| n_avg : {:.2f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
                 f.write("\n=============== Operation limit ================")
                 f.write("\n| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(ng, n, n_check))
                 f.write("\n| q-kink : {:.3f}, operation q : {:.3f} | {}".format(q_kink, q, q_check))
@@ -660,8 +695,8 @@ class Tokamak:
         a_list = []
         
         for eps in eps_list:
-            self.update_design(betan_origin, k_origin, eps, electric_power_origin, T_avg_origin, B_origin, H_origin)
             try:
+                self.update_design(betan_origin, k_origin, eps, electric_power_origin, T_avg_origin, B_origin, H_origin)
                 result = self.get_design_performance()
                 n_limits.append(result['n'] / result['n_g'])
                 b_limits.append(result['beta'] / result['beta_troyon'])
@@ -691,8 +726,8 @@ class Tokamak:
         H_list = []
         
         for H in H_list_:
-            self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B_origin, H)
             try:
+                self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B_origin, H)
                 result = self.get_design_performance()
                 n_limits.append(result['n'] / result['n_g'])
                 b_limits.append(result['beta'] / result['beta_troyon'])
@@ -722,8 +757,8 @@ class Tokamak:
         B_list = []
         
         for B in B_list_:
-            self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B, H_origin)
             try:
+                self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B, H_origin)
                 result = self.get_design_performance()
                 n_limits.append(result['n'] / result['n_g'])
                 b_limits.append(result['beta'] / result['beta_troyon'])
@@ -753,8 +788,8 @@ class Tokamak:
         output_list = []
         
         for output in output_list_:
-            self.update_design(betan_origin, k_origin, eps_origin, output * 10 ** 6, T_avg_origin, B_origin, H_origin)
             try:
+                self.update_design(betan_origin, k_origin, eps_origin, output * 10 ** 6, T_avg_origin, B_origin, H_origin)
                 result = self.get_design_performance()
                 n_limits.append(result['n'] / result['n_g'])
                 b_limits.append(result['beta'] / result['beta_troyon'])
@@ -763,6 +798,9 @@ class Tokamak:
                 output_list.append(output)
             except:
                 continue
+        
+        if len(output_list) == 0:
+            return
         
         axes[3].plot(output_list, n_limits, 'k', label = '$n/n_G$')
         axes[3].plot(output_list, b_limits, 'r', label = '$\\beta/\\beta_T$')
