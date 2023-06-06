@@ -18,13 +18,15 @@ Transition = namedtuple(
 )
 
 default_action_range = {
-    "betan":[2.5, 3.0],
+    "betan":[2.0, 3.5],
     "k" : [1.5, 2.5],
-    "epsilon" : [3.0, 5.0],
-    "electric_power" : [1000, 1500],
-    "T_avg" : [10, 15],
-    "B0" : [13, 16],
-    "H" : [1.0, 1.5]
+    "epsilon" : [2.0, 5.0],
+    "electric_power" : [800, 1500],
+    "T_avg" : [10, 25],
+    "B0" : [10, 16],
+    "H" : [1.0, 1.5],
+    "armour_thickness": [0.01, 0.15],
+    "RF_recirculating_rate":[0.05, 0.2],
 }
 
 class ReplayBufferPPO(object):
@@ -211,7 +213,9 @@ def train_ppo(
             'electric_power' : action[3],
             'T_avg' : action[4],
             'B0' : action[5],
-            'H' : action[6]
+            'H' : action[6],
+            "armour_thickness":action[7],
+            "RF_recirculating_rate":action[8],
         }
         
         state_new, reward, done, _ = env.step(ctrl_new)
@@ -245,8 +249,8 @@ def train_ppo(
         )
                 
         if i_episode % verbose == 0:
-            print(r"| episode:{} | reward : {} | tau : {:.3f} | beta limit : {} | q limit : {} | n limit {} | f_bs limit : {} | ignition : {}".format(
-                i_episode+1, env.rewards[-1], env.taus[-1], env.beta_limits[-1], env.q_limits[-1], env.n_limits[-1], env.f_limits[-1], env.i_limits[-1]
+            print(r"| episode:{} | reward : {} | tau : {:.3f} | beta limit : {} | q limit : {} | n limit {} | f_bs limit : {} | ignition : {} | cost : {:.3f}".format(
+                i_episode+1, env.rewards[-1], env.taus[-1], env.beta_limits[-1], env.q_limits[-1], env.n_limits[-1], env.f_limits[-1], env.i_limits[-1], env.costs[-1]
             ))
             env.tokamak.print_info(None)
 
@@ -270,6 +274,7 @@ def train_ppo(
         "n_limit" : env.n_limits,
         "f_limit" : env.f_limits,
         "i_limit" : env.i_limits,
+        "cost" : env.costs
     }
     
     return result

@@ -14,6 +14,7 @@ class Enviornment(gym.Env):
         self.rewards = []
         
         self.taus = []
+        self.costs = []
         self.beta_limits = []
         self.q_limits = []
         self.n_limits = []
@@ -34,7 +35,7 @@ class Enviornment(gym.Env):
         
         # tokamak variable parameter update
         try:
-            self.tokamak.update_design(action['betan'], action['k'], action['epsilon'], action['electric_power'], action['T_avg'], action['B0'], action['H'])
+            self.tokamak.update_design(action['betan'], action['k'], action['epsilon'], action['electric_power'], action['T_avg'], action['B0'], action['H'], action["armour_thickness"], action["RF_recirculating_rate"])
             state = self.tokamak.get_design_performance()
             reward = self.reward_sender(state)
             
@@ -61,6 +62,7 @@ class Enviornment(gym.Env):
         is_i_limit = state['n_tau'] / state['n_tau_lower'] > 1
         
         self.taus.append(state['tau'])
+        self.costs.append(state['cost'])
         self.beta_limits.append(is_beta_limit)
         self.q_limits.append(is_q_limit)
         self.n_limits.append(is_n_limit)
@@ -78,6 +80,7 @@ class Enviornment(gym.Env):
         self.states.clear()
         self.rewards.clear()
         self.taus.clear()
+        self.costs.clear()
         self.beta_limits.clear()
         self.q_limits.clear()
         self.n_limits.clear()

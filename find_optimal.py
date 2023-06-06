@@ -4,7 +4,7 @@ from src.source import CDsource
 from src.env import Enviornment
 from src.rl.ppo import train_ppo, ActorCritic, ReplayBufferPPO
 from src.rl.reward import RewardSender
-from config.device_info import config
+from config.device_info import config_benchmark, config_liquid
 import torch
 import pickle
 import argparse
@@ -14,11 +14,13 @@ import os
 if torch.cuda.is_available():
     print("cuda available : ", torch.cuda.is_available())
     print("cuda device count : ", torch.cuda.device_count())
-    device = "cuda:1"
+    device = "cuda:0"
 else:
     device = "cpu" 
     
 if __name__ == "__main__":
+    
+    config = config_liquid
 
     profile = Profile(
         nu_T = config["nu_T"],
@@ -59,6 +61,7 @@ if __name__ == "__main__":
         E_thres = config['E_thres'],
         pb_density = config['pb_density'],
         scatter_cs_pb=config['cs_pb_scatter'],
+        multi_cs_pb=config['cs_pb_multi'],
         B0 = config['B0'],
         H = config['H'],
         maximum_allowable_J = config['maximum_allowable_J'],
@@ -68,12 +71,14 @@ if __name__ == "__main__":
     )
     
     reward_sender = RewardSender(
+        w_cost = 0.5,
         w_tau = 0.25,
         w_beta = 1.0,
         w_density=1.0,
         w_q = 0.5,
         w_bs = 0.5,
         w_i = 1.0,
+        cost_r = 1.0,
         tau_r = 1.0,
         beta_r = 1.0,
         q_r = 1.0,
@@ -89,7 +94,9 @@ if __name__ == "__main__":
         'electric_power' : config['electric_power'],
         'T_avg' : config['T_avg'],
         'B0' : config['B0'],
-        'H' : config['H']
+        'H' : config['H'],
+        "armour_thickness" : config['armour_thickness'],
+        "RF_recirculating_rate": config['RF_recirculating_rate'],
     }
     
     init_state = tokamak.get_design_performance()
@@ -97,7 +104,7 @@ if __name__ == "__main__":
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
     
     # policy and value network
-    policy_network = ActorCritic(input_dim = 18 + 7, mlp_dim = 128, n_actions = 7, std = 0.1)
+    policy_network = ActorCritic(input_dim = 19 + 9, mlp_dim = 128, n_actions = 9, std = 0.1)
     
     # gpu allocation
     policy_network.to(device)

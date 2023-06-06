@@ -274,7 +274,7 @@ class Tokamak:
         self.source.update_plasma_frequency(self.profile.compute_n(0.8 * self.a, self.a))
         self.source.update_eb(self.a, self.blanket_thickness, self.Rc)
         
-    def update_design(self, betan : float, k : float, epsilon : float, electric_power : float, T_avg : float, B0 : float, H : float):
+    def update_design(self, betan : float, k : float, epsilon : float, electric_power : float, T_avg : float, B0 : float, H : float, armour_thickness : float, RF_recirculating_rate : float):
         
         # update T_avg
         self.profile.T_avg = T_avg
@@ -286,6 +286,9 @@ class Tokamak:
         self.B0 = B0
         
         self.H = H
+        
+        self.armour_thickness = armour_thickness
+        self.RF_recirculating_rate = RF_recirculating_rate
         
         # core
         self.core.profile = self.profile
@@ -487,6 +490,12 @@ class Tokamak:
         is_ignition = True if n_tau > n_tau_lower_bound else False
         return is_ignition, n_tau, n_tau_lower_bound
     
+    def compute_cost_params(self):
+        Vb = 2 * math.pi ** 2 * self.Rc * ((self.a + self.blanket_thickness) * (self.a * self.k + self.blanket_thickness) - self.k * self.a ** 2)
+        Vtf = 4 * math.pi * self.coil_thickness * (2 * self.Rc - 2 * self.a - 2 * self.blanket_thickness - 2 * self.coil_thickness) * ((1 + self.k) * self.a + 2 * self.blanket_thickness + self.coil_thickness)
+        cost = (Vb + Vtf) / self.electric_power * 10 ** 6
+        return cost
+        
     def print_lawson_criteria(self, filename : str):
         
         tau_operation = self.compute_confinement_time()
@@ -595,6 +604,7 @@ class Tokamak:
         print("| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta * 100, b_check))
         print("| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(f_NC, f_bs, bs_check))
         print("| Lawson nTau : {:.3f} , operation nTau: {:.3f} | {}".format(n_tau_criteria, n_tau, ignition_check))
+        print("| Cost params : {:.3f}".format(self.compute_cost_params()))
         print("================================================")
         
         if filename:
@@ -633,6 +643,7 @@ class Tokamak:
                 f.write("\n| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(beta_troyon, beta * 100, b_check))
                 f.write("\n| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(f_NC, f_bs, bs_check))
                 f.write("\n| Lawson nTau : {:.3f} , operation n*Tau: {:.3f} | {}".format(n_tau_criteria, n_tau, ignition_check))
+                f.write("\n| Cost params : {:.3f}".format(self.compute_cost_params()))
                 f.write("\n================================================")
                 
     def get_design_performance(self):
@@ -658,6 +669,7 @@ class Tokamak:
             "f_NC" : self.compute_NC_bootstrap_fraction(),
             "n_tau" : n_tau,
             "n_tau_lower" : n_tau_lower,
+            "cost" : self.compute_cost_params()
         }
         
         return result
@@ -675,6 +687,7 @@ class Tokamak:
         k_origin = self.k
         betan_origin = self.betan
         
+        
         n_limit_origin = result['n'] / result['n_g']
         f_limit_origin = result['f_NC'] / result['f_BS']
         q_limit_origin = result['q_kink'] / result['q']
@@ -683,10 +696,10 @@ class Tokamak:
         fig, axes = plt.subplots(2,2, figsize = (12,12))
         axes = axes.ravel()
         
-        n_points = 128
+        n_points = 200
         
         # variable : a
-        eps_list = np.linspace(3.0, 5.0, n_points)
+        eps_list = np.linspace(2.5, 5.0, n_points)
     
         n_limits = []
         b_limits = []
@@ -696,7 +709,7 @@ class Tokamak:
         
         for eps in eps_list:
             try:
-                self.update_design(betan_origin, k_origin, eps, electric_power_origin, T_avg_origin, B_origin, H_origin)
+                self.update_design(betan_origin, k_origin, eps, electric_power_origin, T_avg_origin, B_origin, H_origin, self.armour_thickness, self.RF_recirculating_rate)
                 result = self.get_design_performance()
                 n_limits.append(result['n'] / result['n_g'])
                 b_limits.append(result['beta'] / result['beta_troyon'])
@@ -727,7 +740,7 @@ class Tokamak:
         
         for H in H_list_:
             try:
-                self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B_origin, H)
+                self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B_origin, H, self.armour_thickness, self.RF_recirculating_rate)
                 result = self.get_design_performance()
                 n_limits.append(result['n'] / result['n_g'])
                 b_limits.append(result['beta'] / result['beta_troyon'])
@@ -758,7 +771,7 @@ class Tokamak:
         
         for B in B_list_:
             try:
-                self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B, H_origin)
+                self.update_design(betan_origin, k_origin, eps_origin, electric_power_origin, T_avg_origin, B, H_origin, self.armour_thickness, self.RF_recirculating_rate)
                 result = self.get_design_performance()
                 n_limits.append(result['n'] / result['n_g'])
                 b_limits.append(result['beta'] / result['beta_troyon'])
@@ -789,7 +802,7 @@ class Tokamak:
         
         for output in output_list_:
             try:
-                self.update_design(betan_origin, k_origin, eps_origin, output * 10 ** 6, T_avg_origin, B_origin, H_origin)
+                self.update_design(betan_origin, k_origin, eps_origin, output * 10 ** 6, T_avg_origin, B_origin, H_origin, self.armour_thickness, self.RF_recirculating_rate)
                 result = self.get_design_performance()
                 n_limits.append(result['n'] / result['n_g'])
                 b_limits.append(result['beta'] / result['beta_troyon'])
@@ -800,6 +813,7 @@ class Tokamak:
                 continue
         
         if len(output_list) == 0:
+            print("(Warning) | overall performance can not be computed")
             return
         
         axes[3].plot(output_list, n_limits, 'k', label = '$n/n_G$')

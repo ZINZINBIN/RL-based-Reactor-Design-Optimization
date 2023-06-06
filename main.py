@@ -1,14 +1,16 @@
 from src.device import Tokamak
 from src.profile import Profile
 from src.source import CDsource
-from config.device_info import config, config_by_rl, config_liquid
+from config.device_info import config_benchmark, config_by_rl, config_liquid
 import argparse
 import os
 
 def parsing():
     parser = argparse.ArgumentParser(description="Compute the tokamak design and verify the lawson criteria")
     parser.add_argument("--save_dir", type = str, default = "./results")
-    parser.add_argument("--tag", type = str, default = "reference")
+    parser.add_argument("--tag", type = str, default = "project")
+    parser.add_argument("--use_benchmark", type = bool, default = False)
+    parser.add_argument('--use_rl', type = bool, default = False)
     args = vars(parser.parse_args())
     return args
 
@@ -16,7 +18,14 @@ if __name__ == "__main__":
     
     args = parsing()
     
-    config = config_liquid
+    if args['use_benchmark']:
+        args['tag'] = 'reference'
+        config = config_benchmark
+    elif args['use_rl']:
+        config = config_by_rl 
+        args['tag'] = 'ppo'
+    else:
+        config = config_liquid
     
     profile = Profile(
         nu_T = config["nu_T"],
