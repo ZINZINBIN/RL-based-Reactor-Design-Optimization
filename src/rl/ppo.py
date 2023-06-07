@@ -19,13 +19,13 @@ Transition = namedtuple(
 
 default_action_range = {
     "betan":[2.0, 3.5],
-    "k" : [1.5, 2.5],
-    "epsilon" : [2.0, 5.0],
-    "electric_power" : [800, 1500],
-    "T_avg" : [10, 25],
-    "B0" : [10, 16],
-    "H" : [1.0, 1.5],
-    "armour_thickness": [0.01, 0.15],
+    "k" : [1.3, 1.7],
+    "epsilon" : [2.8, 3.2],
+    "electric_power" : [750, 1250],
+    "T_avg" : [18, 22],
+    "B0" : [13, 16],
+    "H" : [1.0, 1.3],
+    "armour_thickness": [0.08, 0.12],
     "RF_recirculating_rate":[0.05, 0.2],
 }
 

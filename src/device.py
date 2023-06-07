@@ -578,6 +578,7 @@ class Tokamak:
         print("| Q-parallel : {:.2f} MW-T/m".format(self.compute_parallel_heat_flux()))
         print("| T_avg : {:.2f} keV".format(self.profile.T_avg))
         print("| n_avg : {:.2f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
+        print("| p_avg : {:.2f} atm".format(self.profile.p_avg / (1.0 * 10 ** 5)))
         
         beta = self.compute_beta()
         beta_troyon = self.compute_troyon_beta()
@@ -637,6 +638,7 @@ class Tokamak:
                 f.write("\n| Q-parallel : {:.2f} MW-T/m".format(self.compute_parallel_heat_flux()))
                 f.write("\n| T_avg : {:.2f} keV".format(self.profile.T_avg))
                 f.write("\n| n_avg : {:.2f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
+                f.write("\n| p_avg : {:.2f} atm".format(self.profile.p_avg / (1.0 * 10 ** 5)))
                 f.write("\n=============== Operation limit ================")
                 f.write("\n| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(ng, n, n_check))
                 f.write("\n| q-kink : {:.3f}, operation q : {:.3f} | {}".format(q_kink, q, q_check))
