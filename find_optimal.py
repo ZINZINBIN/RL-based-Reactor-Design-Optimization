@@ -129,7 +129,7 @@ if __name__ == "__main__":
         0.1,
         0.1,
         device,
-        100000,
+        10000,
         128,
         "./weights/ppo_best.pt",
         "./weights/ppo_last.pt",
