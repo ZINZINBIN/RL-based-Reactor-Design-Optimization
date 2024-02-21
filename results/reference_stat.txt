@@ -29,6 +29,7 @@
 | Q-parallel : 550.25 MW-T/m
 | T_avg : 14.00 keV
 | n_avg : 1.43x10^20 #/m^3
+| p_avg : 7.67 atm
 =============== Operation limit ================
 | Greenwald density : 2.495, operation density : 1.426 | O
 | q-kink : 2.000, operation q : 3.398 | O

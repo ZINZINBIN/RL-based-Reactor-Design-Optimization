@@ -7,20 +7,53 @@ from src.rl.reward import RewardSender
 from config.device_info import config_benchmark, config_liquid
 import torch
 import pickle
-import argparse
-import os
+import argparse, os, warnings
 
-# torch cuda setting
-if torch.cuda.is_available():
-    print("cuda available : ", torch.cuda.is_available())
-    print("cuda device count : ", torch.cuda.device_count())
-    device = "cuda:0"
-else:
-    device = "cpu" 
+warnings.filterwarnings(action = 'ignore')
+
+def parsing():
+    parser = argparse.ArgumentParser(description="Tokamak design optimization based on single-step RL")
+    
+    # Select blanket type: liquid / solid
+    parser.add_argument("--blanket_type", type = str, default = "solid", choices = ['liquid','solid'])
+    
+    # GPU allocation
+    parser.add_argument("--gpu_num", type = int, default = 3)
+    
+    # PPO setup
+    parser.add_argument("--buffer_size", type = int, default = 1000)
+    parser.add_argument("--num_episode", type = int, default = 10000)
+    parser.add_argument("--verbose", type = int, default = 100)
+    parser.add_argument("--lr", type = float, default = 1e-3)
+    parser.add_argument("--gamma", type = float, default = 0.995)
+    parser.add_argument("--eps_clip", type = float, default = 0.1)
+    parser.add_argument("--entropy_coeff", type = float, default = 0.1)
+    
+    args = vars(parser.parse_args())
+
+    return args
+
+# torch device state
+print("=============== Device setup ===============")
+print("torch device avaliable : ", torch.cuda.is_available())
+print("torch current device : ", torch.cuda.current_device())
+print("torch device num : ", torch.cuda.device_count())
+print("torch version : ", torch.__version__)
     
 if __name__ == "__main__":
     
-    config = config_liquid
+    args = parsing()
+    
+    # device allocation
+    if(torch.cuda.device_count() >= 1):
+        device = "cuda:{}".format(args['gpu_num'])
+    else:
+        device = 'cpu'
+    
+    if args['blanket_type'] == 'liquid':
+        config = config_liquid
+    else:
+        config = config_benchmark
 
     profile = Profile(
         nu_T = config["nu_T"],
@@ -110,32 +143,45 @@ if __name__ == "__main__":
     policy_network.to(device)
     
     # optimizer    
-    policy_optimizer = torch.optim.AdamW(policy_network.parameters(), lr = 0.001)
+    policy_optimizer = torch.optim.AdamW(policy_network.parameters(), lr = args['lr'])
 
     # loss function for critic network
     value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'mean')
     
     # memory
-    memory = ReplayBufferPPO(1000)
+    memory = ReplayBufferPPO(args['buffer_size'])
     
-    import numpy as np
+    # directory
+    if not os.path.exists("./weights"):
+        os.makedirs("./weights")
+    
+    if not os.path.exists("./results"):
+        os.makedirs("./results")
+    
+    tag = "PPO_{}".format(args['blanket_type'])
+    save_best = "./weights/{}_best.pt".format(tag)
+    save_last = "./weights/{}_last.pt".format(tag)
+    save_result = "./results/params_search_{}.pkl".format(tag)
+    
+    # Design optimization
+    print("============ Design optimization ============")
     result = train_ppo(
         env, 
         memory,
         policy_network,
         policy_optimizer,
         value_loss_fn,
-        0.995,
-        0.1,
-        0.1,
+        args['gamma'],
+        args['eps_clip'],
+        args['entropy_coeff'],
         device,
-        10000,
-        128,
-        "./weights/ppo_best.pt",
-        "./weights/ppo_last.pt",
+        args['num_episode'],
+        args['verbose'],
+        save_best,
+        save_last,
     )
     
-    with open('./results/params_search_ppo.pickle', 'wb') as file:
+    with open(save_result, 'wb') as file:
         pickle.dump(result, file)
         
     env.close()

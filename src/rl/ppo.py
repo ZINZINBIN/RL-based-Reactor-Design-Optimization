@@ -4,12 +4,11 @@ import torch.nn.functional as F
 import numpy as np
 from itertools import count
 from tqdm.auto import tqdm
-from typing import Optional, List, Literal, Dict, Union
+from typing import Optional, Dict
 from src.env import Enviornment
 from torch.distributions import Normal
 import os, pickle
 from collections import namedtuple, deque
-from typing import Optional
 
 # transition
 Transition = namedtuple(
