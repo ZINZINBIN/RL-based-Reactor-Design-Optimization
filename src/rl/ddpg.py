@@ -7,17 +7,10 @@ from itertools import count
 from tqdm.auto import tqdm
 from typing import Optional, List, Literal, Dict, Union
 from src.rl.buffer import ReplayBuffer, Transition
+from config.search_space_info import search_space
 from src.env import Enviornment
 
-default_action_range = {
-    "betan":[2.5, 3.0],
-    "k" : [1.5, 2.5],
-    "epsilon" : [3.0, 5.0],
-    "electric_power" : [1000, 1500],
-    "T_avg" : [10, 15],
-    "B0" : [13, 16],
-    "H" : [1.0, 1.5]
-}
+default_action_range = search_space
 
 class Actor(nn.Module):
     def __init__(self, input_dim : int, mlp_dim : int, n_actions : int, action_range : Dict = default_action_range):

@@ -6,6 +6,7 @@ from itertools import count
 from tqdm.auto import tqdm
 from typing import Optional, Dict
 from src.env import Enviornment
+from config.search_space_info import search_space
 from torch.distributions import Normal
 import os, pickle
 from collections import namedtuple, deque
@@ -16,21 +17,12 @@ Transition = namedtuple(
     ('state', 'action','next_state','reward','done','prob_a')
 )
 
-default_action_range = {
-    "betan":[2.0, 3.5],
-    "k" : [1.3, 1.7],
-    "epsilon" : [2.8, 3.2],
-    "electric_power" : [750, 1250],
-    "T_avg" : [18, 22],
-    "B0" : [13, 16],
-    "H" : [1.0, 1.3],
-    "armour_thickness": [0.08, 0.12],
-    "RF_recirculating_rate":[0.05, 0.2],
-}
+default_action_range = search_space
 
 class ReplayBufferPPO(object):
     def __init__(self, capacity : int):
         self.memory = deque([], maxlen = capacity)
+        self.capacity = capacity
 
     def push(self, *args):
         self.memory.append(Transition(*args))
@@ -67,9 +59,15 @@ class ReplayBufferPPO(object):
 class ActorCritic(nn.Module):
     def __init__(self, input_dim : int, mlp_dim : int, n_actions : int, action_range : Dict = default_action_range, std : float = 0.0):
         super(ActorCritic, self).__init__()
+        
         self.fc1 = nn.Linear(input_dim, mlp_dim)
+        self.norm1 = nn.LayerNorm(input_dim)
+        
         self.fc2 = nn.Linear(mlp_dim, mlp_dim)
+        self.norm2 = nn.LayerNorm(mlp_dim)
+        
         self.fc3 = nn.Linear(mlp_dim, mlp_dim//2)
+        self.norm3 = nn.LayerNorm(mlp_dim)
         
         self.fc_pi = nn.Linear(mlp_dim // 2, n_actions)
         self.fc_v = nn.Linear(mlp_dim // 2, 1)
@@ -81,9 +79,10 @@ class ActorCritic(nn.Module):
         self.log_std = nn.Parameter(torch.ones(1, n_actions) * std)
         
     def forward(self, x : torch.Tensor):
-        x = F.tanh(self.fc1(x))
-        x = F.tanh(self.fc2(x))
-        x = F.tanh(self.fc3(x))
+
+        x = F.tanh(self.fc1(self.norm1(x)))
+        x = F.tanh(self.fc2(self.norm2(x)))
+        x = F.tanh(self.fc3(self.norm3(x)))
         
         mu = self.fc_pi(x)
         mu = torch.clamp(mu, min = torch.Tensor(self.min_values).to(x.device), max = torch.Tensor(self.max_values).to(x.device))
@@ -100,6 +99,7 @@ class ActorCritic(nn.Module):
         action = torch.clamp(xs, min = torch.Tensor(self.min_values).to(x.device), max = torch.Tensor(self.max_values).to(x.device))
         log_probs = dist.log_prob(action)
         entropy = dist.entropy().mean()
+        
         return action, entropy, log_probs, value
     
 # update policy
@@ -139,15 +139,14 @@ def update_policy(
     state_batch = torch.cat(batch.state).to(device)
     action_batch = torch.cat(batch.action).to(device)
     reward_batch = torch.cat(batch.reward).to(device)
-    prob_a_batch = torch.cat(batch.prob_a).to(device)
+    prob_a_batch = torch.cat(batch.prob_a).to(device) # pi_old
 
     policy_optimizer.zero_grad()
     
     _, _, next_log_probs, next_value = policy_network.sample(non_final_next_states)
     action, entropy, log_probs, value = policy_network.sample(state_batch)
     
-    td_target = reward_batch + gamma * next_value
-    td_target = td_target.detach()
+    td_target = reward_batch.view_as(next_value) + gamma * next_value
     
     delta = td_target - value        
     ratio = torch.exp(log_probs - prob_a_batch)
@@ -192,18 +191,21 @@ def train_ppo(
     best_state = None
     reward_list = []
     
-    for i_episode in tqdm(range(num_episode), desc = 'PPO algorithm training process'):
+    for i_episode in tqdm(range(num_episode), desc = 'PPO algorithm for design optimization'):
     
-        state = env.init_state
-        ctrl = env.init_action
+        if env.current_state is None:
+            state = env.init_state
+            ctrl = env.init_action
+        else:
+            state = env.current_state
+            ctrl = env.current_action
         
         state_tensor = np.array([state[key] for key in state.keys()] + [ctrl[key] for key in ctrl.keys()])
         state_tensor = torch.from_numpy(state_tensor).unsqueeze(0).float()
     
         policy_network.eval()
         action_tensor, entropy, log_probs, value = policy_network.sample(state_tensor.to(device))
-        action_tensor = action_tensor.detach()
-        action = action_tensor.squeeze(0).cpu().numpy()
+        action = action_tensor.detach().squeeze(0).cpu().numpy()
         
         ctrl_new = {
             'betan':action[0],
@@ -232,20 +234,24 @@ def train_ppo(
         memory.push(state_tensor, action_tensor, next_state_tensor, reward, done, log_probs)
 
         # update state
-        state = state_new
-        ctrl = ctrl_new
+        env.current_state = state_new
+        env.current_action = ctrl_new
             
         # update policy
-        policy_loss = update_policy(
-            memory, 
-            policy_network, 
-            policy_optimizer,
-            criterion,
-            gamma, 
-            eps_clip,
-            entropy_coeff,
-            device,
-        )
+        if memory.__len__() >= memory.capacity:
+            policy_loss = update_policy(
+                memory, 
+                policy_network, 
+                policy_optimizer,
+                criterion,
+                gamma, 
+                eps_clip,
+                entropy_coeff,
+                device,
+            )
+            
+            env.current_state = None
+            env.current_action = None
                 
         if i_episode % verbose == 0:
             print(r"| episode:{} | reward : {} | tau : {:.3f} | beta limit : {} | q limit : {} | n limit {} | f_bs limit : {} | ignition : {} | cost : {:.3f}".format(

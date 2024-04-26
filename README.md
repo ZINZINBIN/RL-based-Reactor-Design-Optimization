@@ -17,11 +17,20 @@ This is a git repository of python codes for designing fusion reactors. Based on
         python3 main.py --save_dir {directory name} --tag {tag name}
     ```
 ### Find the optimal tokamak design with reinforcement learning
-- We use single-step PPO algorithm to find out the optimal tokamak design which satisfies operation limits
-- Our aim is to acheive high energy confinement by designing the optimal tokamak based on RL algorithm
-    ```
-        python3 find_optimal.py
-    ```
+- We use (1) Gridserach, (2) Genetic algorithm, and (3) Reinforcement learning algorithm for design optimization.
+- In the case of RL, we use single-step PPO algorithm to find out the optimal tokamak design which satisfies operation limits
+- We designed the optimal tokamak which achieves high energy confinement while satisfying minimum cost (=size of tokamak).
+- You can execute 3 different design optmization codes as below.
+
+1. Gridsearch
+```
+    python3 find_gridsearch.py --blanket_type {'solid' or 'liquid'} --num_episode {# of episodes} --n_grid {# of grids}
+```
+
+2. Deep Reinforcement Learning
+```
+    python3 find_drl.py --blanket_type {'solid' or 'liquid'} --num_episode {# of episodes} --buffer_size {buffer size} --lr {learning rate}
+```
 
 ## Design optimization result based on RL
 We use the initial configuration of the tokamak from the grid search algorithm to find out the naive solution which satisfies the conditions for operation limit. Using single-step PPO algorithm, we can obtain the optimal design configuration of the tokamak which satisfies both the conditions and minimum cost condition. This optimal solution even satisfies that the performance is greater than Q = 10.

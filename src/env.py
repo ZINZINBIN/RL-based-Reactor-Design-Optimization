@@ -13,6 +13,9 @@ class Enviornment(gym.Env):
         self.states = []
         self.rewards = []
         
+        # optimization status
+        self.optim_status = {}
+        
         self.taus = []
         self.costs = []
         self.beta_limits = []
@@ -38,10 +41,12 @@ class Enviornment(gym.Env):
             self.tokamak.update_design(action['betan'], action['k'], action['epsilon'], action['electric_power'], action['T_avg'], action['B0'], action['H'], action["armour_thickness"], action["RF_recirculating_rate"])
             state = self.tokamak.get_design_performance()
             reward = self.reward_sender(state)
+            optim_status = self.reward_sender._compute_reward_dict(state)
             
         except:
             state = None
             reward = None
+            optim_status = None
             
         if state is None or reward is None:
             return None, None, None, None
@@ -68,6 +73,16 @@ class Enviornment(gym.Env):
         self.n_limits.append(is_n_limit)
         self.f_limits.append(is_f_limit)
         self.i_limits.append(is_i_limit)
+        
+        # optimization process status logging
+        if optim_status is not None:
+            
+            for key, value in optim_status.items():
+            
+                if key not in self.optim_status.keys():
+                    self.optim_status[key] = []
+                
+                self.optim_status[key].append(value)
         
         return state, reward, False, {}
     

@@ -257,7 +257,7 @@ class Tokamak:
         in_flux = self.armour.compute_neutron_flux(in_flux, in_energy, armour_thickness)
         out_flux = in_flux * flux_ratio
         
-        self.blanket_thickness = self.blanket.compute_desire_depth(in_energy, in_flux, out_flux)
+        self.blanket_thickness = self.blanket.compute_desire_depth(in_energy, in_flux, out_flux) + 0.2
         
         # shield
         self.shield = Shielding(shield_depth, shield_density, shield_cs, maximum_heat_load, maximum_wall_load)
@@ -411,17 +411,18 @@ class Tokamak:
     
     def compute_q(self):
         Ip = self.compute_Ip()
-        B = B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
-        q = 2 * math.pi * self.a ** 2 * B * (1 + self.k ** 2)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
+        q = 2 * math.pi * self.a ** 2 * B * (1 + self.k ** 2) / 2
         q /= 4 * math.pi * 10 ** (-7) * self.Rc * Ip * 10 ** 6
         return q
     
     def compute_parallel_heat_flux(self):
         Ef = 22.4
-        Ea = 3.6
+        Ea = 3.5
+        
         Pa = self.electric_power / self.thermal_efficiency * Ea / Ef
-        B = B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
-        Q = Pa * B / self.Rc * 10 ** (-6)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
+        Q = Pa * B / self.Rc * 10 ** (-6) # MW
         return Q
     
     def compute_greenwald_density(self):
@@ -430,7 +431,7 @@ class Tokamak:
         return ng
     
     def compute_troyon_beta(self):
-        B = B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
         beta_max = self.betan * self.compute_Ip() / self.a / B
         return beta_max
     
@@ -440,6 +441,40 @@ class Tokamak:
         Ip = self.compute_Ip()
         f_bs = 1 - I_CD / Ip
         return f_bs
+    
+    def compute_toroidal_current(self, rho:float):
+        a_hat = self.a * self.k ** 0.5
+        Ip = self.compute_Ip()
+        
+        x = rho ** 2.25
+        alpha = 2.53
+                
+        Jt_rho = Ip / math.pi / a_hat ** 2 * (9/8) * rho ** 0.25 * (alpha ** 2 * (1-x) * np.exp(alpha * x) / (np.exp(alpha) - 1 - alpha))
+        return Jt_rho
+    
+    def compute_normalized_li(self):
+        a = self.a
+        mu = 4 * math.pi * 10 ** (-7)
+        
+        n = 2048
+        drho = a / n
+        rho_list = [a * i / n for i in range(0, n)]
+        
+        rho_Bp = []
+        Bp = []
+        
+        for idx, rho in enumerate(rho_list):
+            
+            if idx % 64 == 63 and idx > 0:
+                rho_Bp.append(rho)
+                integral = sum([self.compute_toroidal_current(rho_) * 2 * math.pi * rho_ * drho for rho_ in rho_list[:idx]])
+                
+                Bp_rho = integral * mu / 2 / math.pi / rho
+                Bp.append(Bp_rho)
+        
+        li = sum([Bp_rho ** 2 * 2 * rho * (rho_Bp[1] - rho_Bp[0]) for rho, Bp_rho in zip(rho_Bp, Bp)]) / Bp[-1] ** 2 / a ** 2
+        
+        return li
     
     def compute_NC_bootstrap_fraction(self):
         a_hat = self.a * self.k ** 0.5
@@ -574,6 +609,7 @@ class Tokamak:
         print("| tau : {:.3f} s".format(self.compute_confinement_time()))
         print("| Ip : {:.3f} MA".format(self.compute_Ip()))
         print("| q : {:.3f}".format(self.compute_q()))
+        print("| li : {:.3f}".format(self.compute_normalized_li()))
         print("| f_bs : {:.3f}".format(self.compute_bootstrap_fraction()))
         print("| Q-parallel : {:.2f} MW-T/m".format(self.compute_parallel_heat_flux()))
         print("| T_avg : {:.2f} keV".format(self.profile.T_avg))
@@ -634,6 +670,7 @@ class Tokamak:
                 f.write("\n| tau : {:.3f} s".format(self.compute_confinement_time()))
                 f.write("\n| Ip : {:.3f} MA".format(self.compute_Ip()))
                 f.write("\n| q : {:.3f}".format(self.compute_q()))
+                f.write("\n| li : {:.3f}".format(self.compute_normalized_li()))
                 f.write("\n| f_bs : {:.3f}".format(self.compute_bootstrap_fraction()))
                 f.write("\n| Q-parallel : {:.2f} MW-T/m".format(self.compute_parallel_heat_flux()))
                 f.write("\n| T_avg : {:.2f} keV".format(self.profile.T_avg))
@@ -663,6 +700,7 @@ class Tokamak:
             "tau" : self.compute_confinement_time(),
             "Ip" : self.compute_Ip(),
             "q" : self.compute_q(),
+            # "li": self.compute_normalized_li(),
             "f_BS" : self.compute_bootstrap_fraction(),
             "Q_parallel" : self.compute_parallel_heat_flux(),
             "n_g" : self.compute_greenwald_density() / 10 ** 20,
