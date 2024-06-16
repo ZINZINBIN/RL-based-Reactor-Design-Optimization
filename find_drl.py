@@ -22,7 +22,7 @@ def parsing():
     parser.add_argument("--gpu_num", type = int, default = 0)
     
     # PPO setup
-    parser.add_argument("--buffer_size", type = int, default = 20)
+    parser.add_argument("--buffer_size", type = int, default = 8)
     parser.add_argument("--num_episode", type = int, default = 10000)
     parser.add_argument("--verbose", type = int, default = 100)
     parser.add_argument("--lr", type = float, default = 1e-3)
@@ -184,6 +184,7 @@ if __name__ == "__main__":
     
     print("======== Logging optimization process ========")
     optimization_status = env.optim_status
+
     plot_optimization_status(optimization_status, args['buffer_size'], "./results/ppo_optimization")
     
     with open(save_result, 'wb') as file:

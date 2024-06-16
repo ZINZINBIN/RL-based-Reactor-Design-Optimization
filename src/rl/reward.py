@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Literal
 import math
 import numpy as np
 
@@ -47,6 +47,20 @@ class RewardSender:
         
     def _compute_sigmoid(self, x):
         return math.exp(x) / (math.exp(x)+1)
+    
+    def _compute_stability_reward(self, x, scale, method : Literal['soft', 'hard'] = 'soft'):
+        
+        reward = self._compute_sigmoid(x / scale)
+        
+        # case 1 : hard constraint
+        # reward_beta *= np.heaviside(1-beta/beta_max, 0)
+        
+        # case 2 : soft constraint
+        reward *= self._compute_sigmoid(4.0 * (1-x))
+        return None
+    
+    def _compute_performance_reward(self, x):
+        return None
         
     def _compute_reward(self, state:Dict):
         
@@ -74,7 +88,7 @@ class RewardSender:
         
         # stability
         # Troyon beta limit
-        reward_beta =  self._compute_sigmoid(beta / beta_max / self.beta_r)
+        reward_beta = self._compute_sigmoid(beta / beta_max / self.beta_r)
         
         # case 1 : hard constraint
         # reward_beta *= np.heaviside(1-beta/beta_max, 0)
@@ -127,6 +141,8 @@ class RewardSender:
         reward_i = self._compute_sigmoid(n_tau / n_tau_lower / self.i_r)
         
         reward = reward_tau * self.w_tau + reward_cost * self.w_cost + reward_beta * self.w_beta + reward_q * self.w_q + reward_n * self.w_density + reward_f * self.w_bs + reward_i * self.w_i
+        reward /= (self.w_tau + self.w_cost + self.w_beta + self.w_q + self.w_density + self.w_bs + self.w_i)
+        
         return reward
     
     def _compute_reward_dict(self, state:Dict):
@@ -202,6 +218,7 @@ class RewardSender:
         reward_i = self._compute_sigmoid(n_tau / n_tau_lower / self.i_r)
         
         reward = reward_tau * self.w_tau + reward_cost * self.w_cost + reward_beta * self.w_beta + reward_q * self.w_q + reward_n * self.w_density + reward_f * self.w_bs + reward_i * self.w_i
+        reward /= (self.w_tau + self.w_cost + self.w_beta + self.w_q + self.w_density + self.w_bs + self.w_i)
         
         reward_dict = {
             "total":reward,
