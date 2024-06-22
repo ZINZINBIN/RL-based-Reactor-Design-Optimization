@@ -30,6 +30,11 @@ class Enviornment(gym.Env):
         
         self.init_state = init_state
         self.init_action = init_action
+        self.init_reward = None
+        
+        # update initial reward as a crieria
+        _, init_reward, _, _ = self.step(init_action)
+        self.init_reward = init_reward
     
     def step(self, action):
         
@@ -83,8 +88,12 @@ class Enviornment(gym.Env):
                     self.optim_status[key] = []
                 
                 self.optim_status[key].append(value)
+                
+        if self.init_reward is None:
+            return state, reward, False, {}
         
-        return state, reward, False, {}
+        else:
+            return state, reward - self.init_reward, False, {}
     
     def reset(self):
         self.current_action = None

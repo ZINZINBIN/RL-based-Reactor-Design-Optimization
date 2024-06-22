@@ -6,6 +6,6 @@ search_space = {
     "T_avg" : [10, 15],
     "B0" : [12, 16],
     "H" : [1.0, 1.3],
-    "armour_thickness": [0.0, 0.05],
+    "armour_thickness": [0.01, 0.05],
     "RF_recirculating_rate":[0.1, 0.2],
 }

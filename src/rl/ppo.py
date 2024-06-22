@@ -111,7 +111,7 @@ def update_policy(
     gamma : float = 0.99, 
     eps_clip : float = 0.1,
     entropy_coeff : float = 0.1,
-    device : Optional[str] = "cpu",
+    device : Optional[str] = "cpu"
     ):
 
     policy_network.train()
@@ -120,26 +120,18 @@ def update_policy(
         device = "cpu"
     
     if criterion is None:
-        criterion = nn.SmoothL1Loss(reduction='mean') # Huber Loss for critic network
+        criterion = nn.SmoothL1Loss(reduction = 'none') # Huber Loss for critic network
     
     transitions = memory.get_trajectory()
     memory.clear()
     batch = Transition(*zip(*transitions))
-
-    non_final_mask = torch.tensor(
-        tuple(
-            map(lambda s : s is not None, batch.next_state)
-        ),
-        device = device,
-        dtype = torch.bool
-    )
-    
+ 
     non_final_next_states = torch.cat([s for s in batch.next_state if s is not None]).to(device)
 
-    state_batch = torch.cat(batch.state).to(device)
-    action_batch = torch.cat(batch.action).to(device)
-    reward_batch = torch.cat(batch.reward).to(device)
-    prob_a_batch = torch.cat(batch.prob_a).to(device) # pi_old
+    state_batch = torch.cat(batch.state).float().to(device)
+    action_batch = torch.cat(batch.action).float().to(device)
+    reward_batch = torch.cat(batch.reward).float().to(device)
+    prob_a_batch = torch.cat(batch.prob_a).float().to(device) # pi_old
 
     policy_optimizer.zero_grad()
     
@@ -149,11 +141,10 @@ def update_policy(
     td_target = reward_batch.view_as(next_value) + gamma * next_value
     
     delta = td_target - value        
-    ratio = torch.exp(log_probs - prob_a_batch)
+    ratio = torch.exp(log_probs - prob_a_batch.detach())
     surr1 = ratio * delta
     surr2 = torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip) * delta
     loss = -torch.min(surr1, surr2) + criterion(value, td_target) - entropy_coeff * entropy
-    
     loss = loss.mean()
     loss.backward()
 
@@ -190,6 +181,7 @@ def train_ppo(
     best_action = None
     best_state = None
     reward_list = []
+    loss_list = []
     
     for i_episode in tqdm(range(num_episode), desc = 'PPO algorithm for design optimization'):
     
@@ -199,6 +191,9 @@ def train_ppo(
         else:
             state = env.current_state
             ctrl = env.current_action
+        
+        # state = env.init_state
+        # ctrl = env.init_action
         
         state_tensor = np.array([state[key] for key in state.keys()] + [ctrl[key] for key in ctrl.keys()])
         state_tensor = torch.from_numpy(state_tensor).unsqueeze(0).float()
@@ -247,11 +242,13 @@ def train_ppo(
                 gamma, 
                 eps_clip,
                 entropy_coeff,
-                device,
+                device
             )
             
             env.current_state = None
             env.current_action = None
+            
+            loss_list.append(policy_loss.detach().cpu().numpy())
                 
         if i_episode % verbose == 0:
             print(r"| episode:{} | reward : {} | tau : {:.3f} | beta limit : {} | q limit : {} | n limit {} | f_bs limit : {} | ignition : {} | cost : {:.3f}".format(
@@ -279,7 +276,8 @@ def train_ppo(
         "n_limit" : env.n_limits,
         "f_limit" : env.f_limits,
         "i_limit" : env.i_limits,
-        "cost" : env.costs
+        "cost" : env.costs,
+        "loss" : loss_list
     }
     
     return result

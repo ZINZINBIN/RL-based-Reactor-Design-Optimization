@@ -4,7 +4,7 @@ from src.source import CDsource
 from src.env import Enviornment
 from src.rl.ppo import train_ppo, ActorCritic, ReplayBufferPPO
 from src.rl.reward import RewardSender
-from src.utility import plot_optimization_status
+from src.utility import plot_optimization_status, plot_policy_loss
 from config.device_info import config_benchmark, config_liquid
 import torch
 import pickle
@@ -24,13 +24,13 @@ def parsing():
     # PPO setup
     parser.add_argument("--buffer_size", type = int, default = 8)
     parser.add_argument("--num_episode", type = int, default = 10000)
-    parser.add_argument("--verbose", type = int, default = 100)
-    parser.add_argument("--lr", type = float, default = 1e-3)
-    parser.add_argument("--gamma", type = float, default = 0.995)
-    parser.add_argument("--eps_clip", type = float, default = 0.2)
+    parser.add_argument("--verbose", type = int, default = 1000)
+    parser.add_argument("--lr", type = float, default = 2e-5)
+    parser.add_argument("--gamma", type = float, default = 0.999)
+    parser.add_argument("--eps_clip", type = float, default = 0.25)
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
     
-    args = vars(parser.parse_args())
+    args = vars(parser.parse_args()) 
 
     return args
 
@@ -107,18 +107,19 @@ if __name__ == "__main__":
     reward_sender = RewardSender(
         w_cost = 1.0,
         w_tau = 1.0,
-        w_beta = 2.0,
-        w_density=1.0,
-        w_q = 1.0,
-        w_bs = 1.0,
+        w_beta = 5.0,
+        w_density=5.0,
+        w_q = 5.0,
+        w_bs = 5.0,
         w_i = 1.0,
         cost_r = 1.0,
         tau_r = 1.0,
-        beta_r = 1.0,
-        q_r = 1.0,
-        n_r = 1.0,
+        beta_r = 4.0,
+        q_r = 2.0,
+        n_r = 3.0,
         f_r = 1.0,
-        i_r = 1.0
+        i_r = 1.0,
+        a = 3.0
     )
     
     init_action = {
@@ -138,16 +139,16 @@ if __name__ == "__main__":
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
     
     # policy and value network
-    policy_network = ActorCritic(input_dim = 19 + 9, mlp_dim = 128, n_actions = 9, std = 0.5)
+    policy_network = ActorCritic(input_dim = 19 + 9, mlp_dim = 32, n_actions = 9, std = 0.5)
     
     # gpu allocation
     policy_network.to(device)
     
     # optimizer    
-    policy_optimizer = torch.optim.SGD(policy_network.parameters(), lr = args['lr'])
+    policy_optimizer = torch.optim.AdamW(policy_network.parameters(), lr = args['lr'])
 
     # loss function for critic network
-    value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'mean')
+    value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'none')
     
     # memory
     memory = ReplayBufferPPO(args['buffer_size'])
@@ -184,8 +185,9 @@ if __name__ == "__main__":
     
     print("======== Logging optimization process ========")
     optimization_status = env.optim_status
-
     plot_optimization_status(optimization_status, args['buffer_size'], "./results/ppo_optimization")
+    
+    plot_policy_loss(result['loss'], args['buffer_size'], "./results/ppo_optimization")
     
     with open(save_result, 'wb') as file:
         pickle.dump(result, file)
