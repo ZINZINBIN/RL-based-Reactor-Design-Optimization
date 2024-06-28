@@ -49,7 +49,7 @@ class Blanket:
 
     def compute_desire_depth(self, in_energy : float, in_flux : float, out_flux : float):
         alpha_B = 1 / (2 * self.lamda_s * self.density_6 * self.breeding_cs) * math.sqrt(in_energy / self.E_thres)
-        depth = self.lamda_s * math.log(1+alpha_B * math.log(in_flux / out_flux))
+        depth = self.lamda_s * math.log(1+alpha_B * math.log(in_flux / out_flux)) + 0.2
         return depth
     
     def compute_multiplier_effect(self, in_flux : float, x : float):
@@ -257,7 +257,7 @@ class Tokamak:
         in_flux = self.armour.compute_neutron_flux(in_flux, in_energy, armour_thickness)
         out_flux = in_flux * flux_ratio
         
-        self.blanket_thickness = self.blanket.compute_desire_depth(in_energy, in_flux, out_flux) + 0.2
+        self.blanket_thickness = self.blanket.compute_desire_depth(in_energy, in_flux, out_flux) 
         
         # shield
         self.shield = Shielding(shield_depth, shield_density, shield_cs, maximum_heat_load, maximum_wall_load)

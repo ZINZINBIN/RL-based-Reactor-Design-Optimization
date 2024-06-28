@@ -111,7 +111,7 @@ if __name__ == "__main__":
         w_density=5.0,
         w_q = 5.0,
         w_bs = 5.0,
-        w_i = 1.0,
+        w_i = 5.0,
         cost_r = 1.0,
         tau_r = 1.0,
         beta_r = 4.0,
