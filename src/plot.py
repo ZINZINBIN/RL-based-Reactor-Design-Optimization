@@ -1,63 +1,184 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from src.device import Tokamak
-from scipy.interpolate import RectBivariateSpline, interp2d
-from matplotlib import colors, cm
+import matplotlib.patches as patches
 from matplotlib.pyplot import Axes
-from matplotlib.gridspec import GridSpec
-from typing import Dict, Union
+from matplotlib.lines import Line2D
 
-# KSTAR configuration
-KSTAR_PF_coils = {
-    "P1L":[0.57, -0.25],
-    "P1U":[0.57, 0.25],
-    "P2L":[0.57, -0.7],
-    "P2U":[0.57, 0.7],
-    "P3L":[0.57, -1.00],
-    "P3U":[0.57, 1.00],
-    "P4L":[0.57, -1.26],
-    "P4U":[0.57, 1.26],
-    "P5L":[1.09, -2.30],
-    "P5U":[1.09, 2.30],
-    "P6L":[3.09, -1.92],
-    "P6U":[3.09, 1.92],
-    "P7L":[3.73, -0.98],
-    "P7U":[3.73, 0.98],
-}
+def draw_core(ax:Axes, R : float, a : float, b : float):
+    ax.add_patch(
+        patches.Ellipse(
+            xy = (R, 0), # xy xy coordinates of ellipse centre.
+            width = 2 * a,   # width Total length (diameter) of horizontal axis.
+            height = 2 * b, # height Total length (diameter) of vertical axis.
+            angle = 0, # angle Rotation in degrees anti-clockwise. 0 by default
+            edgecolor = 'black',
+            linestyle = 'solid', 
+            fill = True,
+            facecolor = 'yellow',
+            )
+    )
+    
+    return ax
 
-KSTAR_limiter_shape = np.array([
-    [ 1.265,  1.085],
-    [ 1.608,  1.429],
-    [ 1.683,  1.431],
-    [ 1.631,  1.326],
-    [ 1.578,  1.32 ],
-    [ 1.593,  1.153],
-    [ 1.626,  1.09 ],
-    [ 2.006,  0.773],
-    [ 2.233,  0.444],
-    [ 2.235,  0.369],
-    [ 2.263,  0.31 ],
-    [ 2.298,  0.189],
-    [ 2.316,  0.062],
-    [ 2.316, -0.062],
-    [ 2.298, -0.189],
-    [ 2.263, -0.31 ],
-    [ 2.235, -0.369],
-    [ 2.233, -0.444],
-    [ 2.006, -0.773],
-    [ 1.626, -1.09 ],
-    [ 1.593, -1.153],
-    [ 1.578, -1.32 ],
-    [ 1.631, -1.326],
-    [ 1.683, -1.431],
-    [ 1.608, -1.429],
-    [ 1.265, -1.085],
-    [ 1.265,  1.085]
-])
+def draw_armour(ax:Axes, R : float, a : float, b : float):
+    
+    ax.add_patch(
+        patches.Polygon(
+            np.array([
+                [R-a, -0.5*b],
+                [R-0.7*a, -b], 
+                [R+0.7*a, -b], 
+                [R+a, -0.5 * b], 
+                [R+a, 0.5*b], 
+                [R+0.7*a, b], 
+                [R-0.7*a, b],
+                [R-a, 0.5*b]
+                ]), # xy
+            closed=True,
+            edgecolor = 'black',
+            linestyle = 'solid', 
+            fill = True,
+            facecolor = 'lightgray',
+        )
+    )    
+    
+    return ax
 
-# draw limiter
-def draw_limiter(ax:Axes, limiter_shape:np.array):
-    ax.plot(limiter_shape[:,0], limiter_shape[:,1], 'black')
+def draw_blanket(ax:Axes, R : float, a_inner : float, b_inner : float, a_outer : float, b_outer : float):
+    ax.add_patch(
+        patches.Polygon(
+            np.array([
+                [R-a_outer*1.0, -b_outer * 0.8], 
+                [R-a_outer*0.8, -b_outer * 1.0], 
+                [R+a_outer*0.7, -b_outer * 1.0], 
+                [R+a_outer*0.9, -b_outer * 0.7], 
+                [R+a_outer*1.0, -b_outer * 0.5], 
+                [R+a_outer*1.0, b_outer * 0.5], 
+                [R+a_outer*0.9, b_outer * 0.7], 
+                [R+a_outer*0.7, b_outer * 1.0], 
+                [R-a_outer*0.8, b_outer * 1.0], 
+                [R-a_outer*1.0, b_outer * 0.8]
+            ]),
+            closed=True,
+            edgecolor = 'black',
+            linestyle = 'solid', 
+            fill = True,
+            facecolor = 'blue',
+        )
+    )    
+    
+    ax.add_patch(
+        patches.Polygon(
+            np.array([
+                [R-a_inner*1.0, -b_inner * 0.8], 
+                [R-a_inner*0.8, -b_inner * 1.0], 
+                [R+a_inner*0.7, -b_inner * 1.0], 
+                [R+a_inner*0.9, -b_inner * 0.7], 
+                [R+a_inner*1.0, -b_inner * 0.5], 
+                [R+a_inner*1.0, b_inner * 0.5], 
+                [R+a_inner*0.9, b_inner * 0.7], 
+                [R+a_inner*0.7, b_inner * 1.0], 
+                [R-a_inner*0.8, b_inner * 1.0], 
+                [R-a_inner*1.0, b_inner * 0.8]
+                ]),
+            closed=True,
+            edgecolor = 'none',
+            linestyle = 'solid', 
+            fill = True,
+            facecolor = 'white',
+        )
+    )    
+    
+    return ax
+
+def draw_coil(ax:Axes,R : float, a_inner : float, b_inner : float, a_outer : float, b_outer : float):
+       
+    ax.add_patch(
+        patches.Polygon(
+            np.array([
+                [R-a_outer*1.0, -b_outer * 0.8], 
+                [R-a_outer*0.8, -b_outer * 1.0], 
+                [R+a_outer*0.7, -b_outer * 1.0], 
+                [R+a_outer*0.9, -b_outer * 0.7], 
+                [R+a_outer*1.0, -b_outer * 0.5], 
+                [R+a_outer*1.0, b_outer * 0.5], 
+                [R+a_outer*0.9, b_outer * 0.7], 
+                [R+a_outer*0.7, b_outer * 1.0], 
+                [R-a_outer*0.8, b_outer * 1.0], 
+                [R-a_outer*1.0, b_outer * 0.8]
+            ]),
+            closed=True,
+            edgecolor = 'black',
+            linestyle = 'solid', 
+            fill = True,
+            facecolor = 'red',
+        )
+    )    
+    
+    ax.add_patch(
+        patches.Polygon(
+            np.array([
+                [R-a_inner*1.0, -b_inner * 0.8], 
+                [R-a_inner*0.8, -b_inner * 1.0], 
+                [R+a_inner*0.7, -b_inner * 1.0], 
+                [R+a_inner*0.9, -b_inner * 0.7], 
+                [R+a_inner*1.0, -b_inner * 0.5], 
+                [R+a_inner*1.0, b_inner * 0.5], 
+                [R+a_inner*0.9, b_inner * 0.7], 
+                [R+a_inner*0.7, b_inner * 1.0], 
+                [R-a_inner*0.8, b_inner * 1.0], 
+                [R-a_inner*1.0, b_inner * 0.8]
+                ]),
+            closed=True,
+            edgecolor = 'none',
+            linestyle = 'solid', 
+            fill = True,
+            facecolor = 'white',
+        )
+    )    
+    
+    return ax
+
+def plot_design_poloidal(
+    R:float,
+    a:float,
+    b:float,
+    d_armour:float,
+    d_blanket:float,
+    d_coil:float,
+    x_min:float = 0,
+    x_max:float = 10,
+    y_min:float = -8,
+    y_max:float = 8,
+    ):
+    
+    a_armour = a + d_armour
+    b_armour = b + d_armour
+
+    a_blanket = a_armour + 0.1
+    b_blanket = b_armour + 0.1
+
+    a_coil = a_blanket + d_blanket + 0.1
+    b_coil = b_blanket + d_blanket + 0.1
+
+    fig = plt.figure(figsize = (6, 6))
+    ax = fig.add_subplot()
+
+    ax = draw_coil(ax, R, a_coil, b_coil, a_coil + d_coil, b_coil + d_coil)
+    ax = draw_blanket(ax, R, a_blanket, b_blanket, a_blanket + d_blanket, b_blanket + d_blanket)
+    ax = draw_armour(ax, R, a_armour, b_armour)
+    ax = draw_core(ax, R, a, b)
+
+    ax.set_xlim([x_min, x_max])
+    ax.set_ylim([y_min, y_max])
     ax.set_xlabel('R[m]')
     ax.set_ylabel('Z[m]')
+    
+    legend_elements = [
+        Line2D([0],[0], color = 'r', lw = 4, label = "TFC"),
+        Line2D([0],[0], color = 'b', lw = 4, label = "Blanekt"),
+        Line2D([0],[0], color = 'gray', lw = 4, label = "Armour"),
+        Line2D([0],[0], color = 'y', lw = 4, label = "Core"),
+        ]
+    ax.legend(handles = legend_elements, loc ="upper right")
     return ax
