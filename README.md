@@ -33,7 +33,9 @@ This is a git repository of python codes for designing fusion reactors. Based on
     ```
 
 ## Design optimization result based on RL
-We use the initial configuration of the tokamak from the grid search algorithm to find out the naive solution which satisfies the conditions for operation limit. Using single-step PPO algorithm, we can obtain the optimal design configuration of the tokamak which satisfies both the conditions and minimum cost condition. This optimal solution even satisfies that the performance is greater than Q = 10.
+
+The figures below represent the comparison between original designed tokamak (left) and optimal designed tokamak based on DRL (right). We use the initial configuration of the tokamak from the grid search algorithm to find out the naive solution which satisfies the conditions for operation limit. Using single-step PPO algorithm, we can obtain the optimal design configuration of the tokamak which satisfies both the conditions and minimum cost condition. This optimal solution even satisfies that the performance is greater than Q = 10. 
+
 - Lawson criteria 
 <div>
     <p float = 'left'>
@@ -47,6 +49,14 @@ We use the initial configuration of the tokamak from the grid search algorithm t
     <p float = 'left'>
         <img src="/results/project_overall.png"  width="360" height="320">
         <img src="/results/ppo_overall.png"  width="360" height="320">
+    </p>
+</div>
+
+- Design configuration
+<div>
+    <p float = 'left'>
+        <img src="/results/project_poloidal_design.png"  width="360" height="320">
+        <img src="/results/ppo_poloidal_design.png"  width="360" height="320">
     </p>
 </div>
 
