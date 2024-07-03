@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from src.profile import Profile
 from src.source import CDsource
 from src.lawson import Lawson
+from src.plot import plot_design_poloidal
 from config.neutron_info import *
 from typing import Dict, Optional
 
@@ -580,6 +581,33 @@ class Tokamak:
         ax.set_xlim([0,1.0])
         ax.set_ylim([0,3.0])
         ax.legend()
+        fig.tight_layout()
+        plt.savefig(filename)
+        
+    def print_design_configuration(self, filename:str, x_min:float = 0, x_max:float = 15, y_min:float = -8, y_max:float = 8):
+                        
+        R = self.Rc
+        a = self.a
+        b = a * self.k
+        d_armour = self.armour_thickness
+        d_blanket = self.blanket_thickness
+        d_shield = self.shield_depth
+        d_coil = self.coil_thickness
+        
+        fig, ax = plot_design_poloidal(
+            R,
+            a,
+            b,
+            d_armour,
+            d_blanket,
+            d_coil,
+            d_shield,
+            x_min,
+            x_max,
+            y_min,
+            y_max
+        )
+        
         fig.tight_layout()
         plt.savefig(filename)
         
