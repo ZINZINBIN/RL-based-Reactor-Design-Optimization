@@ -78,6 +78,6 @@ if __name__ == "__main__":
     # save file
     tokamak.print_info(os.path.join(args['save_dir'], "{}_stat.txt".format(args['tag'])))
     tokamak.print_profile(os.path.join(args['save_dir'], "{}_profile.png".format(args['tag'])))
+    tokamak.print_design_configuration(os.path.join(args['save_dir'], "{}_poloidal_design.png".format(args['tag'])))
     tokamak.print_lawson_criteria(os.path.join(args['save_dir'], "{}_lawson.png".format(args['tag'])))
     tokamak.print_overall_performance(os.path.join(args['save_dir'], "{}_overall.png".format(args['tag'])))
-    tokamak.print_design_configuration(os.path.join(args['save_dir'], "{}_poloidal_design.png".format(args['tag'])))

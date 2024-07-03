@@ -50,7 +50,7 @@ class Blanket:
 
     def compute_desire_depth(self, in_energy : float, in_flux : float, out_flux : float):
         alpha_B = 1 / (2 * self.lamda_s * self.density_6 * self.breeding_cs) * math.sqrt(in_energy / self.E_thres)
-        depth = self.lamda_s * math.log(1+alpha_B * math.log(in_flux / out_flux)) + 0.2
+        depth = self.lamda_s * math.log(1+alpha_B * math.log(in_flux / out_flux)) + 0.3
         return depth
     
     def compute_multiplier_effect(self, in_flux : float, x : float):
@@ -271,7 +271,7 @@ class Tokamak:
         self.total_thickness = self.coil_thickness + self.blanket_thickness + self.armour_thickness + self.a + self.shield_depth
         
         # update current source 
-        self.source.update_B0(self.B0 * (1-(self.a + self.blanket_thickness + self.shield_depth) / self.Rc))
+        self.source.update_B0(self.B0 * (1-(self.a + self.blanket_thickness) / self.Rc))
         self.source.update_plasma_frequency(self.profile.compute_n(0.8 * self.a, self.a))
         self.source.update_eb(self.a, self.blanket_thickness, self.Rc)
         
@@ -323,7 +323,7 @@ class Tokamak:
         self.total_thickness = self.coil_thickness + self.blanket_thickness + self.armour_thickness + self.a + self.shield_depth
         
         # update current source 
-        self.source.update_B0(self.B0 * (1-(self.a + self.blanket_thickness + self.shield_depth) / self.Rc))
+        self.source.update_B0(self.B0 * (1-(self.a + self.blanket_thickness) / self.Rc))
         self.source.update_plasma_frequency(self.profile.compute_n(0.8 * self.a, self.a))
         self.source.update_eb(self.a, self.blanket_thickness, self.Rc)
         
@@ -349,7 +349,7 @@ class Tokamak:
         self.profile.n_avg = n_avg
         
     def compute_beta(self):
-        B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
         beta = 2 * self.profile.p_avg * 4 * math.pi * 10 ** (-7) / B ** 2
         return beta
         
@@ -395,24 +395,25 @@ class Tokamak:
     
     def compute_confinement_time(self):
         Ef = 22.4
-        Ea = 3.6
+        Ea = 3.5
         tau = Ef / Ea * 1.5 * self.core.compute_core_volume() * self.profile.p_avg * self.thermal_efficiency / self.electric_power
         return tau
     
     def compute_Ip(self):
         Ef = 22.4
-        Ea = 3.6
+        Ea = 3.5
         tau = self.compute_confinement_time()
-        B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
         n_ = self.profile.n_avg / 10 ** 20
         A = 2.5
         Ip = 7.98 * tau ** 1.08 * (Ea / Ef * self.electric_power / self.thermal_efficiency / 10 ** 6) ** 0.74
         Ip /= self.H ** 1.08 * self.Rc ** 1.49 * self.a ** 0.62 * self.k ** 0.84 * n_ ** 0.44 * B ** 0.16 * A ** 0.2
+        
         return Ip    
     
     def compute_q(self):
         Ip = self.compute_Ip()
-        B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
         q = 2 * math.pi * self.a ** 2 * B * (1 + self.k ** 2) / 2
         q /= 4 * math.pi * 10 ** (-7) * self.Rc * Ip * 10 ** 6
         return q
@@ -422,7 +423,7 @@ class Tokamak:
         Ea = 3.5
         
         Pa = self.electric_power / self.thermal_efficiency * Ea / Ef
-        B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
         Q = Pa * B / self.Rc * 10 ** (-6) # MW
         return Q
     
@@ -432,15 +433,16 @@ class Tokamak:
         return ng
     
     def compute_troyon_beta(self):
-        B = self.B0 * (1 - (self.a + self.blanket_thickness + self.shield_depth) / self.Rc)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
         beta_max = self.betan * self.compute_Ip() / self.a / B
         return beta_max
     
     def compute_bootstrap_fraction(self):
-        P_CD = self.electric_power * self.RF_recirculating_rate
+        P_CD = self.electric_power * self.RF_recirculating_rate * 0.8 * 0.5
         I_CD = self.source.compute_I_CD(self.Rc, P_CD, self.profile.n_avg)
         Ip = self.compute_Ip()
         f_bs = 1 - I_CD / Ip
+        
         return f_bs
     
     def compute_toroidal_current(self, rho:float):
@@ -538,10 +540,10 @@ class Tokamak:
         T_operation = self.profile.T_avg
         
         T = np.linspace(6, 100, 64, endpoint=False)
-        n = self.profile.n_avg
+        n = self.profile.compute_n_total()
         B = self.B0 * (1 - (self.a + self.blanket_thickness)/self.Rc)
         
-        psi = 10 ** (-2)
+        psi = 10 ** (-3)
         
         n_tau = [self.lawson.compute_n_tau_lower_bound(t, n, B, psi) * 10 ** (-20) for t in T]
         n_tau_5 = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi, 5) * 10 ** (-20) for t in T]
@@ -586,7 +588,7 @@ class Tokamak:
         
     def print_design_configuration(self, filename:str, x_min:float = 0, x_max:float = 15, y_min:float = -8, y_max:float = 8):
                         
-        R = self.Rc
+        Rc = self.Rc
         a = self.a
         b = a * self.k
         d_armour = self.armour_thickness
@@ -595,7 +597,7 @@ class Tokamak:
         d_coil = self.coil_thickness
         
         fig, ax = plot_design_poloidal(
-            R,
+            Rc,
             a,
             b,
             d_armour,

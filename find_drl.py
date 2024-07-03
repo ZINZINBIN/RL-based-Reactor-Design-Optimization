@@ -22,12 +22,12 @@ def parsing():
     parser.add_argument("--gpu_num", type = int, default = 0)
     
     # PPO setup
-    parser.add_argument("--buffer_size", type = int, default = 8)
+    parser.add_argument("--buffer_size", type = int, default = 4)
     parser.add_argument("--num_episode", type = int, default = 10000)
-    parser.add_argument("--verbose", type = int, default = 1000)
-    parser.add_argument("--lr", type = float, default = 2e-5)
+    parser.add_argument("--verbose", type = int, default = 10000)
+    parser.add_argument("--lr", type = float, default = 1e-3)
     parser.add_argument("--gamma", type = float, default = 0.999)
-    parser.add_argument("--eps_clip", type = float, default = 0.25)
+    parser.add_argument("--eps_clip", type = float, default = 0.2)
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
     
     args = vars(parser.parse_args()) 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     )
     
     reward_sender = RewardSender(
-        w_cost = 1.0,
+        w_cost = 0.1,
         w_tau = 1.0,
         w_beta = 5.0,
         w_density=5.0,
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         n_r = 3.0,
         f_r = 1.0,
         i_r = 1.0,
-        a = 3.0
+        a = 5.0 # 3.0
     )
     
     init_action = {
