@@ -1,7 +1,9 @@
 import gym
 import numpy as np
+import math
 from src.device import Tokamak
 from src.rl.reward import RewardSender
+from config.search_space_info import search_space
 
 class Enviornment(gym.Env):
     def __init__(self, tokamak : Tokamak, reward_sender : RewardSender, init_state, init_action):
@@ -39,7 +41,8 @@ class Enviornment(gym.Env):
     def step(self, action):
         
         # scaling
-        action['electric_power'] *= 10 ** 6
+        if action['electric_power'] <= search_space['electric_power'][1] and action['electric_power'] >= search_space['electric_power'][0]:
+            action['electric_power'] *= 10 ** 6
         
         # tokamak variable parameter update
         try:
@@ -55,7 +58,13 @@ class Enviornment(gym.Env):
             
         if state is None or reward is None:
             return None, None, None, None
-            
+        
+        is_b_limit = 1 if state['beta'] / state['beta_troyon'] < 1 else 0
+        is_q_limit = 1 if state['q'] / state['q_kink'] > 1 else 0
+        is_n_limit = 1 if state['n'] / state['n_g'] < 1 else 0
+        is_f_limit = 1 if state['f_NC'] / state['f_BS'] > 1 else 0
+        is_i_limit = 1 if state['n_tau'] / state['n_tau_lower'] > 1 else 0
+        
         # update state
         self.current_action = action
         self.current_state = state
@@ -65,15 +74,9 @@ class Enviornment(gym.Env):
         self.states.append(state)
         self.rewards.append(reward)
         
-        is_beta_limit = state['beta'] / state['beta_troyon'] < 1
-        is_q_limit = state['q'] / state['q_kink'] > 1
-        is_n_limit = state['n'] / state['n_g'] < 1
-        is_f_limit = state['f_NC'] / state['f_BS'] > 1
-        is_i_limit = state['n_tau'] / state['n_tau_lower'] > 1
-        
         self.taus.append(state['tau'])
         self.costs.append(state['cost'])
-        self.beta_limits.append(is_beta_limit)
+        self.beta_limits.append(is_b_limit)
         self.q_limits.append(is_q_limit)
         self.n_limits.append(is_n_limit)
         self.f_limits.append(is_f_limit)

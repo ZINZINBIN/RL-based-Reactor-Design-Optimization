@@ -21,9 +21,11 @@ if __name__ == "__main__":
     if args['use_benchmark']:
         args['tag'] = 'reference'
         config = config_benchmark
+        
     elif args['use_rl']:
         config = config_by_rl 
         args['tag'] = 'ppo'
+        
     else:
         config = config_liquid
     

@@ -14,7 +14,7 @@ from collections import namedtuple, deque
 # transition
 Transition = namedtuple(
     'Transition',
-    ('state', 'action','next_state','reward','done','prob_a')
+    ('state','action','next_state','reward','done','prob_a')
 )
 
 default_action_range = search_space
@@ -173,13 +173,8 @@ def train_ppo(
 
     if device is None:
         device = "cpu"
-
-    episode_durations = []
     
     best_reward = 0
-    best_episode = 0
-    best_action = None
-    best_state = None
     reward_list = []
     loss_list = []
     
@@ -191,10 +186,7 @@ def train_ppo(
         else:
             state = env.current_state
             ctrl = env.current_action
-        
-        # state = env.init_state
-        # ctrl = env.init_action
-        
+            
         state_tensor = np.array([state[key] for key in state.keys()] + [ctrl[key] for key in ctrl.keys()])
         state_tensor = torch.from_numpy(state_tensor).unsqueeze(0).float()
     
@@ -251,10 +243,12 @@ def train_ppo(
             loss_list.append(policy_loss.detach().cpu().numpy())
                 
         if i_episode % verbose == 0:
+            
             print(r"| episode:{} | reward : {} | tau : {:.3f} | beta limit : {} | q limit : {} | n limit {} | f_bs limit : {} | ignition : {} | cost : {:.3f}".format(
                 i_episode+1, env.rewards[-1], env.taus[-1], env.beta_limits[-1], env.q_limits[-1], env.n_limits[-1], env.f_limits[-1], env.i_limits[-1], env.costs[-1]
             ))
-            env.tokamak.print_info(None)
+            
+            # env.tokamak.print_info(None)
 
         # save weights
         torch.save(policy_network.state_dict(), save_last)

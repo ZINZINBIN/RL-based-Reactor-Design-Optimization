@@ -520,7 +520,7 @@ class Tokamak:
         B = self.B0 * (1 - (self.a + self.blanket_thickness)/self.Rc)
         n = self.profile.n_avg 
         
-        psi = 10 ** (-2)
+        psi = 10 ** (-3)
         n_tau_lower_bound = self.lawson.compute_n_tau_lower_bound(T_operation, n, B, psi) * 10 ** (-20)
         n *= 10 ** (-20)
         n_tau = n * tau_operation
@@ -734,14 +734,14 @@ class Tokamak:
             "f_BS" : self.compute_bootstrap_fraction(),
             "Q_parallel" : self.compute_parallel_heat_flux(),
             "n_g" : self.compute_greenwald_density() / 10 ** 20,
-            "q_kink" : 2,
+            "q_kink" : 2.0,
             "beta_troyon" : self.compute_troyon_beta(),
             "f_NC" : self.compute_NC_bootstrap_fraction(),
             "n_tau" : n_tau,
             "n_tau_lower" : n_tau_lower,
-            "cost" : self.compute_cost_params()
+            "cost" : self.compute_cost_params(),
         }
-        
+
         return result
     
     def print_overall_performance(self, filename : str):
@@ -756,7 +756,6 @@ class Tokamak:
         electric_power_origin = self.electric_power
         k_origin = self.k
         betan_origin = self.betan
-        
         
         n_limit_origin = result['n'] / result['n_g']
         f_limit_origin = result['f_NC'] / result['f_BS']

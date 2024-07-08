@@ -65,3 +65,19 @@ The figures below represent the comparison between original designed tokamak (le
 - Spectial topics on fusion reactor enigneering, Jisung Kang, KFE
 - Lecture note on Fusion Reactor Technology 1, Yong-su Na, SNU
 - Direct shape optimization through deep reinforcement learning, Jonathan Viquerat et al
+
+## Code Citation
+@ARTICLE{2017arXiv170504862C,
+   author = {{Clemente}, A.~V. and {Castej{\'o}n}, H.~N. and {Chandra}, A.
+	},
+    title = "{Efficient Parallel Methods for Deep Reinforcement Learning}",
+  journal = {ArXiv e-prints},
+archivePrefix = "arXiv",
+   eprint = {1705.04862},
+ primaryClass = "cs.LG",
+ keywords = {Computer Science - Learning},
+     year = 2017,
+    month = may,
+   adsurl = {http://adsabs.harvard.edu/abs/2017arXiv170504862C},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}

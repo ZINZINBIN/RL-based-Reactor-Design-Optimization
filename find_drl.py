@@ -116,10 +116,10 @@ if __name__ == "__main__":
         tau_r = 1.0,
         beta_r = 4.0,
         q_r = 2.0,
-        n_r = 3.0,
+        n_r = 2.0,
         f_r = 1.0,
         i_r = 1.0,
-        a = 5.0 # 3.0
+        a = 3.0
     )
     
     init_action = {
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
     
     # policy and value network
-    policy_network = ActorCritic(input_dim = 19 + 9, mlp_dim = 32, n_actions = 9, std = 0.5)
+    policy_network = ActorCritic(input_dim = 19 + 9, mlp_dim = 64, n_actions = 9, std = 0.25)
     
     # gpu allocation
     policy_network.to(device)

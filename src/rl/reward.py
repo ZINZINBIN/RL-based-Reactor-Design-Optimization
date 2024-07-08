@@ -21,6 +21,7 @@ class RewardSender:
         f_r : float = 1.0,
         i_r : float = 1.0,
         a : float = 3.0,
+        reward_fail : float = -3.0
         ):
         self.w_cost = w_cost
         self.w_tau = w_tau
@@ -40,12 +41,12 @@ class RewardSender:
         
         # Reward engineering
         # If the designed device has inplausible state, the reward should handle this case
-        self.reward_fail = -2.0
+        self.reward_fail = reward_fail
         self.a = a
         
-        self.valid_beta = [0,10]
-        self.valid_q = [0,5]
-        self.valid_n = [0,5]
+        self.valid_beta = [2.0,6.0]
+        self.valid_q = [1.0,3.0]
+        self.valid_n = [1.0,5.0]
         
     def _compute_tanh(self, x):
         return math.tanh(x)
@@ -55,17 +56,24 @@ class RewardSender:
         xnl = x_min / x_scale
         xrl = x_max / x_scale
         
-        if xn < xrl:
+        if xn > xrl:
+            reward = self._compute_tanh(a * (2 * xrl - xnl - xn))
+        elif xn <= xrl and xn > xnl:
             reward = self._compute_tanh(a * (xn - xnl))
         else:
-            reward = self._compute_tanh(a * (2 * xrl - xnl - xn))
+            reward = 0
             
         return reward
-    
+        
     def _compute_performance_reward(self, x, x_scale, x_min, x_max, a : float = 3.0):
         xn = x / x_scale
         xnl = x_min / x_scale
-        reward = self._compute_tanh(a * (xn - xnl))
+        
+        if xn >= xnl:
+            reward = self._compute_tanh(a * (xn - xnl))
+        else:
+            reward = 0
+        
         return reward
         
     def _compute_reward(self, state:Dict):
@@ -96,21 +104,22 @@ class RewardSender:
         
         # stability
         # Troyon beta limit
-        reward_beta = self._compute_stability_reward(beta, self.beta_r, 0.5 * beta_max, beta_max, self.a)
+        reward_beta = self._compute_stability_reward(beta, self.beta_r, self.valid_beta[0], beta_max, self.a)
         
         reward_beta += self.reward_fail * (
              np.heaviside(beta - self.valid_beta[1], 0) + np.heaviside(self.valid_beta[0] - beta, 0)
         )
         
         # kink instability
-        reward_q = self._compute_stability_reward(1 / q, 1 / self.q_r, 0.5 * 1 / q_kink, 1 / q_kink, self.a)
+        # reward_q = self._compute_stability_reward(1 / q, 1 / self.q_r, 0.5 * 1 / q_kink, 1 / q_kink, self.a)
+        reward_q = self._compute_performance_reward(q, self.q_r, q_kink, None, self.a)
         
         reward_q += self.reward_fail * (
              np.heaviside(q - self.valid_q[1], 0) + np.heaviside(self.valid_q[0] - q, 0)
         )
         
         # Greenwald density   
-        reward_n = self._compute_stability_reward(n, self.n_r, 0.5 * n_g, n_g, self.a)
+        reward_n = self._compute_stability_reward(n, self.n_r, self.valid_n[0], n_g, self.a)
         
         reward_n += self.reward_fail * (
              np.heaviside(n - self.valid_n[1], 0) + np.heaviside(self.valid_n[0] - n, 0)
@@ -148,21 +157,22 @@ class RewardSender:
                 
         # stability
         # Troyon beta limit
-        reward_beta = self._compute_stability_reward(beta, self.beta_r, 0.5 * beta_max, beta_max, self.a)
+        reward_beta = self._compute_stability_reward(beta, self.beta_r, self.valid_beta[0], beta_max, self.a)
         
         reward_beta += self.reward_fail * (
              np.heaviside(beta - self.valid_beta[1], 0) + np.heaviside(self.valid_beta[0] - beta, 0)
         )
         
         # kink instability
-        reward_q = self._compute_stability_reward(1 / q, 1 / self.q_r, 0.5 * 1 / q_kink, 1 / q_kink, self.a)
+        # reward_q = self._compute_stability_reward(1 / q, 1 / self.q_r, 0.5 * 1 / q_kink, 1 / q_kink, self.a)
+        reward_q = self._compute_performance_reward(q, self.q_r, q_kink, None, self.a)
         
         reward_q += self.reward_fail * (
              np.heaviside(q - self.valid_q[1], 0) + np.heaviside(self.valid_q[0] - q, 0)
         )
         
         # Greenwald density   
-        reward_n = self._compute_stability_reward(n, self.n_r, 0.5 * n_g, n_g, self.a)
+        reward_n = self._compute_stability_reward(n, self.n_r, self.valid_n[0], n_g, self.a)
         
         reward_n += self.reward_fail * (
              np.heaviside(n - self.valid_n[1], 0) + np.heaviside(self.valid_n[0] - n, 0)
