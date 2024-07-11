@@ -139,13 +139,17 @@ class Core:
         sig_v = math.exp(k0 + k1 * math.log(T) + k2 * math.log(T) ** 2 + k3 * math.log(T) ** 3 + k4 * math.log(T) ** 4)
         return sig_v
 
-    def compute_fusion_power_density(self):
+    def compute_fusion_power_density(self, p, T):
         En = 14.1
-        Ea = 3.6
-        p = self.profile.compute_p_total(n=64)
-        T = self.profile.compute_t_total(n=64)
+        Ea = 3.6 
         sig_v = self.compute_avg_cross_section_v(T)
         Sp = 1 / 16 * (En + Ea) * p ** 2 * sig_v / T ** 2
+        return Sp
+    
+    def compute_total_thermal_power_density(self, p, T): # including alpha particle energy from blanket
+        Ef = 22.4        
+        sig_v = self.compute_avg_cross_section_v(T)
+        Sp = 1 / 16 * Ef * p ** 2 * sig_v / T ** 2
         return Sp
     
     def compute_neutron_flux(self):
@@ -393,6 +397,34 @@ class Tokamak:
         
         return TBR
     
+    def compute_fusion_power(self):
+        rho = np.linspace(0,1,64)[0:-1]
+        drho = rho[1] - rho[0]
+        p_profile = self.profile.compute_p_profile(64)[0:-1]
+        T_profile = self.profile.compute_T_profile(64)[0:-1]
+        
+        Sp_rho = np.array([self.core.compute_fusion_power_density(p,T) for p, T in zip(p_profile, T_profile)])
+        pt = np.sum(2 * rho * Sp_rho * drho)
+        pt /= 1.6 * 10 ** (-19)
+        
+        V = self.core.compute_core_volume()
+        Pt = pt * V
+        return Pt
+    
+    def compute_thermal_power(self):
+        rho = np.linspace(0,1,64)[0:-1]
+        drho = rho[1] - rho[0]
+        p_profile = self.profile.compute_p_profile(64)[0:-1]
+        T_profile = self.profile.compute_T_profile(64)[0:-1]
+        
+        Sp_rho = np.array([self.core.compute_total_thermal_power_density(p,T) for p, T in zip(p_profile, T_profile)])
+        pt = np.sum(2 * rho * Sp_rho * drho)
+        pt /= 1.6 * 10 ** (-19)
+        
+        V = self.core.compute_core_volume()
+        Pt = pt * V
+        return Pt
+
     def compute_confinement_time(self):
         Ef = 22.4
         Ea = 3.5
@@ -530,7 +562,7 @@ class Tokamak:
     
     def compute_cost_params(self):
         Vb = 2 * math.pi ** 2 * self.Rc * ((self.a + self.blanket_thickness) * (self.a * self.k + self.blanket_thickness) - self.k * self.a ** 2)
-        Vtf = 4 * math.pi * self.coil_thickness * (2 * self.Rc - 2 * self.a - 2 * self.blanket_thickness - 2 * self.coil_thickness) * ((1 + self.k) * self.a + 2 * self.blanket_thickness + self.coil_thickness)
+        Vtf = 4 * math.pi * self.coil_thickness * (2 * self.Rc - 2 * self.a - 2 * self.blanket_thickness - self.coil_thickness) * ((1 + self.k) * self.a + 2 * self.blanket_thickness + self.coil_thickness)
         cost = (Vb + Vtf) / self.electric_power * 10 ** 6
         return cost
         
@@ -634,6 +666,7 @@ class Tokamak:
         print("| Aspect ratio : {:.3f}".format(self.epsilon))
         print("| Thermal efficiency : {:.3f}".format(self.thermal_efficiency))
         print("| Electric power : {:.3f} MW".format(self.electric_power / 10**6))
+        print("| Thermal power : {:.3f} MW".format(self.compute_thermal_power() / 10**6))
         print("| TBR : {:.3f}".format(self.compute_TBR()))
         print("| beta : {:.3f}".format(self.compute_beta() * 100))
         print("| tau : {:.3f} s".format(self.compute_confinement_time()))
@@ -695,6 +728,7 @@ class Tokamak:
                 f.write("\n| Aspect ratio : {:.3f}".format(self.epsilon))
                 f.write("\n| Thermal efficiency : {:.3f}".format(self.thermal_efficiency))
                 f.write("\n| Electric power : {:.3f} MW".format(self.electric_power / 10**6))
+                f.write("\n| Thermal power : {:.3f} MW".format(self.compute_thermal_power() / 10**6))
                 f.write("\n| TBR : {:.3f}".format(self.compute_TBR()))
                 f.write("\n| beta : {:.3f}".format(self.compute_beta() * 100))
                 f.write("\n| tau : {:.3f} s".format(self.compute_confinement_time()))

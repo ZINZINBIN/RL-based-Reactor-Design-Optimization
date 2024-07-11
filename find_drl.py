@@ -30,6 +30,9 @@ def parsing():
     parser.add_argument("--eps_clip", type = float, default = 0.2)
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
     
+    # Visualization
+    parser.add_argument("--smoothing_temporal_length", type = int, default = 16)
+    
     args = vars(parser.parse_args()) 
 
     return args
@@ -106,20 +109,16 @@ if __name__ == "__main__":
     
     reward_sender = RewardSender(
         w_cost = 0.1,
-        w_tau = 1.0,
-        w_beta = 5.0,
-        w_density=5.0,
-        w_q = 5.0,
-        w_bs = 5.0,
-        w_i = 5.0,
+        w_tau = 0.1,
+        w_beta = 0.5,
+        w_density=0.5,
+        w_q = 1.0,
+        w_bs = 1.0,
+        w_i = 1.0,
         cost_r = 1.0,
         tau_r = 1.0,
-        beta_r = 4.0,
-        q_r = 2.0,
-        n_r = 2.0,
-        f_r = 1.0,
-        i_r = 1.0,
-        a = 3.0
+        a = 1.0,
+        reward_fail = -1.0
     )
     
     init_action = {
@@ -185,9 +184,9 @@ if __name__ == "__main__":
     
     print("======== Logging optimization process ========")
     optimization_status = env.optim_status
-    plot_optimization_status(optimization_status, args['buffer_size'], "./results/ppo_optimization")
+    plot_optimization_status(optimization_status, args['smoothing_temporal_length'], "./results/ppo_optimization")
     
-    plot_policy_loss(result['loss'], args['buffer_size'], "./results/ppo_optimization")
+    plot_policy_loss(result['loss'], args['smoothing_temporal_length'], args['buffer_size'], "./results/ppo_optimization")
     
     with open(save_result, 'wb') as file:
         pickle.dump(result, file)

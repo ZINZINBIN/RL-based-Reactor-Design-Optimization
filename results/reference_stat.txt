@@ -20,6 +20,7 @@
 | Aspect ratio : 4.000
 | Thermal efficiency : 0.400
 | Electric power : 1000.000 MW
+| Thermal power : 2499.989 MW
 | TBR : 3.316
 | beta : 4.125
 | tau : 0.944 s
@@ -36,6 +37,6 @@
 | q-kink : 2.000, operation q : 1.554 | X
 | Troyon beta : 4.381, operation beta : 4.125 | O
 | Neoclassical f_bs : 0.445, operation f_bs : 0.841 | X
-| Lawson nTau : 2.448 , operation n*Tau: 1.346 | X
-| Cost params : 0.921
+| Lawson nTau : 2.236 , operation n*Tau: 1.346 | X
+| Cost params : 1.003
 ================================================

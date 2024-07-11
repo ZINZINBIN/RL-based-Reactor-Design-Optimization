@@ -130,9 +130,20 @@ def update_policy(
 
     state_batch = torch.cat(batch.state).float().to(device)
     action_batch = torch.cat(batch.action).float().to(device)
-    reward_batch = torch.cat(batch.reward).float().to(device)
     prob_a_batch = torch.cat(batch.prob_a).float().to(device) # pi_old
-
+    
+    # Single-step version reward
+    # reward_batch = torch.cat(batch.reward).float().to(device)
+    
+    # Multi-step version reward: Monte Carlo estimate
+    rewards = []
+    discounted_reward = 0
+    for reward in reversed(batch.reward):
+        discounted_reward = reward + (gamma * discounted_reward)
+        rewards.insert(0, discounted_reward)
+        
+    reward_batch = torch.cat(rewards).float().to(device)
+    
     policy_optimizer.zero_grad()
     
     _, _, next_log_probs, next_value = policy_network.sample(non_final_next_states)
@@ -248,7 +259,7 @@ def train_ppo(
                 i_episode+1, env.rewards[-1], env.taus[-1], env.beta_limits[-1], env.q_limits[-1], env.n_limits[-1], env.f_limits[-1], env.i_limits[-1], env.costs[-1]
             ))
             
-            # env.tokamak.print_info(None)
+            env.tokamak.print_info(None)
 
         # save weights
         torch.save(policy_network.state_dict(), save_last)

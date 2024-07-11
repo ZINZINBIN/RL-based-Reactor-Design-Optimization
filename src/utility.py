@@ -32,6 +32,7 @@ def temperal_average(X:np.array, Y:np.array, k:int):
 
 def plot_policy_loss(
     loss_list:List, 
+    buffer_size : int, 
     temporal_length:int = 8, 
     save_dir : Optional[str] = None,
     ):
@@ -39,8 +40,9 @@ def plot_policy_loss(
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     
-    loss = np.repeat(np.array(loss_list).reshape(-1,1), repeats = temporal_length, axis = 1).reshape(-1,)
+    loss = np.repeat(np.array(loss_list).reshape(-1,1), repeats = buffer_size, axis = 1).reshape(-1,)
     episode = np.array(range(1, len(loss)+1, 1))
+    
     
     x_mean, loss_mean, loss_lower, loss_upper = temperal_average(episode, loss, temporal_length)
     

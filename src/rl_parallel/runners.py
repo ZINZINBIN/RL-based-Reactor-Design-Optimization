@@ -6,14 +6,18 @@ from ctypes import c_uint, c_float, c_double
 from typing import List
 
 class EmulatorRunner(Process):
-    def __init__(self, id:int, envs:List[Enviornment], variables, queue, barrier):
+    def __init__(self, id:int, envs:List[Enviornment], variables, queue, barrier:Queue):
         super(EmulatorRunner, self).__init__()
         self.id = id
         self.envs = envs
         self.variables = variables
         self.queue = queue
         self.barrier = barrier
-        
+    
+    def init_env(self):
+        for env in self.envs:
+            env.reset()    
+    
     def run(self):
         super(EmulatorRunner, self).run()
         self._run()
@@ -36,6 +40,10 @@ class Runners(object):
         
         self.runners = [EmulatorRunner(i, emulators, vars, self.queues[i], self.barrier) for i, (emulators, vars) in
                         enumerate(zip(np.split(emulators, workers), zip(*[np.split(var, workers) for var in self.variables])))]
+
+    def init_env(self):
+        for emulator_runner in self.runners:
+            emulator_runner.init_env()
 
     def _get_shared(self, array):
         """
