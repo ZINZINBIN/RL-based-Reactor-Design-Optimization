@@ -3,11 +3,11 @@ import math
 
 class Lawson:
     def __init__(self):
-        self.Q_dt = 17.6 * 10 ** 6
+        self.Q_dt = 22.4 * 10 ** 6
         self.A_br = 1.6 * 10 ** (-38) * (1.6 * 10 ** (-19)) ** (-1)
         self.A_cyc = 6.3 * 10 ** (-20) * (1.6 * 10 ** (-19)) ** (-1)
         
-        self.fc = 3.5 / 17.6
+        self.fc = 3.5 / 22.4
         
     def compute_avg_cross_section_v(self, T : float):
         k0 = -60.4593

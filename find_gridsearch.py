@@ -19,7 +19,7 @@ def parsing():
     
     # Setup
     parser.add_argument("--num_episode", type = int, default = 10000)
-    parser.add_argument("--verbose", type = int, default = 100)
+    parser.add_argument("--verbose", type = int, default = 1000)
     parser.add_argument("--n_grid", type = int, default = 10)
     
     args = vars(parser.parse_args())
@@ -84,20 +84,17 @@ if __name__ == "__main__":
     )
     
     reward_sender = RewardSender(
-        w_cost = 1.0,
-        w_tau = 1.0,
-        w_beta = 2.0,
-        w_density=1.0,
+        w_cost = 0.1,
+        w_tau = 0.1,
+        w_beta = 0.5,
+        w_density=0.5,
         w_q = 1.0,
         w_bs = 1.0,
-        w_i = 1.0,
+        w_i = 1.5,
         cost_r = 1.0,
         tau_r = 1.0,
-        beta_r = 1.0,
-        q_r = 1.0,
-        n_r = 1.0,
-        f_r = 1.0,
-        i_r = 1.0
+        a = 1.0,
+        reward_fail = -1.0
     )
     
     init_action = {

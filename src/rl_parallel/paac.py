@@ -3,7 +3,7 @@
     - paac.py from https://github.com/Alfredvc/paac/blob/master/paac.py
     - Parallel framework for Efficient Deep RL (ActorCritic Version)
 '''
-from src.rl.ppo import update_policy, ActorCritic
+from src.rl.ppo import update_policy, ActorCritic, ReplayBufferPPO
 from src.env import Enviornment
 from src.device import Tokamak
 from src.profile import Profile
@@ -88,11 +88,6 @@ def create_environment(
         w_i = args_reward['w_i'],
         cost_r = args_reward['cost_r'],
         tau_r = args_reward['tau_r'],
-        beta_r = args_reward['beta_r'],
-        q_r = args_reward['q_r'],
-        n_r = args_reward['n_r'],
-        f_r = args_reward['f_r'],
-        i_r = args_reward['i_r'],
         a = args_reward['a']
     )
     
@@ -113,10 +108,10 @@ def create_environment(
     return env
 
 def train_ppo_parallel(
+    memory : ReplayBufferPPO, 
     num_workers:int,
     num_envs:int,
     args_reward:Dict,
-    memory : Queue, 
     policy_network : ActorCritic, 
     policy_optimizer : torch.optim.Optimizer,
     criterion :Optional[nn.Module] = None,
@@ -144,101 +139,40 @@ def train_ppo_parallel(
     
     # multiprocessing
     runners.start()
-    
+        
     for i_episode in range(num_episode):
-    
-        if env.current_state is None:
-            state = env.init_state
-            ctrl = env.init_action
-        else:
-            state = env.current_state
-            ctrl = env.current_action
-            
-        state_tensor = np.array([state[key] for key in state.keys()] + [ctrl[key] for key in ctrl.keys()])
-        state_tensor = torch.from_numpy(state_tensor).unsqueeze(0).float()
-    
-        policy_network.eval()
-        action_tensor, entropy, log_probs, value = policy_network.sample(state_tensor.to(device))
-        action = action_tensor.detach().squeeze(0).cpu().numpy()
         
-        ctrl_new = {
-            'betan':action[0],
-            'k':action[1],
-            'epsilon' : action[2],
-            'electric_power' : action[3],
-            'T_avg' : action[4],
-            'B0' : action[5],
-            'H' : action[6],
-            "armour_thickness":action[7],
-            "RF_recirculating_rate":action[8],
-        }
+        # Load shared trajectories
+        shared_states, shared_actions, shared_next_states, shared_rewards, shared_done, shared_log_probs = runners.get_shared_variables()
         
-        state_new, reward, done, _ = env.step(ctrl_new)
+        # update next action 
+        runners.update_environments()
         
-        if state_new is None:
-            continue
-    
-        reward_list.append(reward)
-        reward = torch.tensor([reward])
+        # buffer.barrier()
+        runners.wait_updated()
         
-        next_state_tensor = np.array([state_new[key] for key in state_new.keys()] + [ctrl_new[key] for key in ctrl_new.keys()])
-        next_state_tensor = torch.from_numpy(next_state_tensor).unsqueeze(0).float()
+        # load shared memory
+        memory.push(shared_states, shared_actions, shared_next_states, shared_rewards, shared_done, shared_log_probs)
         
-        # memory에 transition 저장
-        memory.push(state_tensor, action_tensor, next_state_tensor, reward, done, log_probs)
-
-        # update state
-        env.current_state = state_new
-        env.current_action = ctrl_new
-            
-        # update policy
+        # Optimize the network's parameters
         if memory.__len__() >= memory.capacity:
             policy_loss = update_policy(
                 memory, 
-                policy_network, 
+                policy_network,
                 policy_optimizer,
                 criterion,
-                gamma, 
+                gamma,
                 eps_clip,
                 entropy_coeff,
                 device
             )
             
-            env.current_state = None
-            env.current_action = None
-            
+            runners.init_env()
             loss_list.append(policy_loss.detach().cpu().numpy())
                 
-        if i_episode % verbose == 0:
-            
-            print(r"| episode:{} | reward : {} | tau : {:.3f} | beta limit : {} | q limit : {} | n limit {} | f_bs limit : {} | ignition : {} | cost : {:.3f}".format(
-                i_episode+1, env.rewards[-1], env.taus[-1], env.beta_limits[-1], env.q_limits[-1], env.n_limits[-1], env.f_limits[-1], env.i_limits[-1], env.costs[-1]
-            ))
-            
-            # env.tokamak.print_info(None)
-
         # save weights
         torch.save(policy_network.state_dict(), save_last)
-        
-        if env.rewards[-1] > best_reward:
-            best_reward = env.rewards[-1]
-            best_episode = i_episode
-            torch.save(policy_network.state_dict(), save_best)
-
+              
     print("RL training process clear....!")
     
-    result = {
-        "control":env.actions,
-        "state":env.states,
-        "reward":env.rewards,
-        "tau":env.taus,
-        "beta_limit" : env.beta_limits,
-        "q_limit" : env.q_limits,
-        "n_limit" : env.n_limits,
-        "f_limit" : env.f_limits,
-        "i_limit" : env.i_limits,
-        "cost" : env.costs,
-        "loss" : loss_list
-    }
-    
-    return result
+    return

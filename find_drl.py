@@ -15,6 +15,9 @@ warnings.filterwarnings(action = 'ignore')
 def parsing():
     parser = argparse.ArgumentParser(description="Tokamak design optimization based on single-step RL")
     
+    # tag for labeling the optimization process
+    parser.add_argument("--tag", type = str, default = "")
+    
     # Select blanket type: liquid / solid
     parser.add_argument("--blanket_type", type = str, default = "solid", choices = ['liquid','solid'])
     
@@ -108,13 +111,13 @@ if __name__ == "__main__":
     )
     
     reward_sender = RewardSender(
-        w_cost = 0.1,
+        w_cost = 0.5, # 0.1
         w_tau = 0.1,
         w_beta = 0.5,
         w_density=0.5,
         w_q = 1.0,
         w_bs = 1.0,
-        w_i = 1.0,
+        w_i = 1.5,
         cost_r = 1.0,
         tau_r = 1.0,
         a = 1.0,
@@ -144,8 +147,8 @@ if __name__ == "__main__":
     policy_network.to(device)
     
     # optimizer    
-    policy_optimizer = torch.optim.AdamW(policy_network.parameters(), lr = args['lr'])
-
+    policy_optimizer = torch.optim.RMSprop(policy_network.parameters(), lr = args['lr'])
+    
     # loss function for critic network
     value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'none')
     
@@ -158,8 +161,12 @@ if __name__ == "__main__":
     
     if not os.path.exists("./results"):
         os.makedirs("./results")
-    
-    tag = "PPO_{}".format(args['blanket_type'])
+        
+    if len(args['tag']) > 0:
+        tag = "PPO_{}_{}".format(args['blanket_type'], args['tag'])
+    else:
+        tag = "PPO_{}".format(args['blanket_type'])
+        
     save_best = "./weights/{}_best.pt".format(tag)
     save_last = "./weights/{}_last.pt".format(tag)
     save_result = "./results/params_search_{}.pkl".format(tag)
@@ -184,9 +191,9 @@ if __name__ == "__main__":
     
     print("======== Logging optimization process ========")
     optimization_status = env.optim_status
-    plot_optimization_status(optimization_status, args['smoothing_temporal_length'], "./results/ppo_optimization")
+    plot_optimization_status(optimization_status, args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
     
-    plot_policy_loss(result['loss'], args['smoothing_temporal_length'], args['buffer_size'], "./results/ppo_optimization")
+    plot_policy_loss(result['loss'], args['smoothing_temporal_length'], args['buffer_size'], "./results/{}_optimization".format(tag))
     
     with open(save_result, 'wb') as file:
         pickle.dump(result, file)

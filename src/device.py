@@ -139,9 +139,15 @@ class Core:
         sig_v = math.exp(k0 + k1 * math.log(T) + k2 * math.log(T) ** 2 + k3 * math.log(T) ** 3 + k4 * math.log(T) ** 4)
         return sig_v
 
+    def compute_alpha_heating_density(self, p, T):
+        Ea = 3.5
+        sig_v = self.compute_avg_cross_section_v(T)
+        Sp = 1 / 16 * Ea * p ** 2 * sig_v / T ** 2
+        return Sp
+
     def compute_fusion_power_density(self, p, T):
         En = 14.1
-        Ea = 3.6 
+        Ea = 3.5
         sig_v = self.compute_avg_cross_section_v(T)
         Sp = 1 / 16 * (En + Ea) * p ** 2 * sig_v / T ** 2
         return Sp
@@ -151,6 +157,16 @@ class Core:
         sig_v = self.compute_avg_cross_section_v(T)
         Sp = 1 / 16 * Ef * p ** 2 * sig_v / T ** 2
         return Sp
+    
+    def compute_radiation_loss_power_density(self, n, T, B, psi):
+        A_br = 1.6 * 10 ** (-38) 
+        A_cyc = 6.3 * 10 ** (-20)
+        Sl = A_br * (T * 10 ** 3) ** 0.5 * n ** 2 + psi * A_cyc * B ** 2 * (T * 10 ** 3) * n
+        return Sl
+    
+    def compute_thermal_loss_power_density(self, n, T, tau):
+        St = 3 * n * T / tau * 1.6 * 10 ** (-19) * 10 ** 3
+        return St
     
     def compute_neutron_flux(self):
         N = self.profile.compute_n_total(n=64)
@@ -398,10 +414,11 @@ class Tokamak:
         return TBR
     
     def compute_fusion_power(self):
-        rho = np.linspace(0,1,64)[0:-1]
+        N = 128
+        rho = np.linspace(0,1,N)[0:-1]
         drho = rho[1] - rho[0]
-        p_profile = self.profile.compute_p_profile(64)[0:-1]
-        T_profile = self.profile.compute_T_profile(64)[0:-1]
+        p_profile = self.profile.compute_p_profile(N)[0:-1]
+        T_profile = self.profile.compute_T_profile(N)[0:-1]
         
         Sp_rho = np.array([self.core.compute_fusion_power_density(p,T) for p, T in zip(p_profile, T_profile)])
         pt = np.sum(2 * rho * Sp_rho * drho)
@@ -412,10 +429,11 @@ class Tokamak:
         return Pt
     
     def compute_thermal_power(self):
-        rho = np.linspace(0,1,64)[0:-1]
+        N = 128
+        rho = np.linspace(0,1,N)[0:-1]
         drho = rho[1] - rho[0]
-        p_profile = self.profile.compute_p_profile(64)[0:-1]
-        T_profile = self.profile.compute_T_profile(64)[0:-1]
+        p_profile = self.profile.compute_p_profile(N)[0:-1]
+        T_profile = self.profile.compute_T_profile(N)[0:-1]
         
         Sp_rho = np.array([self.core.compute_total_thermal_power_density(p,T) for p, T in zip(p_profile, T_profile)])
         pt = np.sum(2 * rho * Sp_rho * drho)
@@ -424,11 +442,69 @@ class Tokamak:
         V = self.core.compute_core_volume()
         Pt = pt * V
         return Pt
+    
+    def compute_alpha_heating_power(self):
+        N = 128
+        rho = np.linspace(0,1,N)[0:-1]
+        drho = rho[1] - rho[0]
+        p_profile = self.profile.compute_p_profile(N)[0:-1]
+        T_profile = self.profile.compute_T_profile(N)[0:-1]
+        
+        Sp_rho = np.array([self.core.compute_alpha_heating_density(p,T) for p, T in zip(p_profile, T_profile)])
+        pa = np.sum(2 * rho * Sp_rho * drho)
+        pa /= 1.6 * 10 ** (-19)
+        
+        V = self.core.compute_core_volume()
+        Pa = pa * V
+        return Pa
+    
+    def compute_radiational_loss_power(self):
+        psi = 10 ** (-3)
+        N = 128
+        rho = np.linspace(0,1,N)[0:-1]
+        drho = rho[1] - rho[0]
+        n_profile = self.profile.compute_n_profile(N)[0:-1]
+        T_profile = self.profile.compute_T_profile(N)[0:-1]
+        
+        B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
+        Sl_rho = np.array([self.core.compute_radiation_loss_power_density(n,T,B,psi) for n, T in zip(n_profile, T_profile)])
+        
+        pl = np.sum(2 * rho * Sl_rho * drho)
+        Pl = pl * self.core.compute_core_volume()
+        return Pl
+    
+    def compute_thermal_loss_power(self):
+        N = 128
+        tau = self.compute_confinement_time()
 
+        rho = np.linspace(0,1,N)[0:-1]
+        drho = rho[1] - rho[0]
+        n_profile = self.profile.compute_n_profile(N)[0:-1]
+        T_profile = self.profile.compute_T_profile(N)[0:-1]
+        
+        St_rho = np.array([self.core.compute_thermal_loss_power_density(n,T,tau) for n, T in zip(n_profile, T_profile)])
+        pt = np.sum(2 * rho * St_rho * drho)
+        Pt = pt * self.core.compute_core_volume()
+        return Pt
+    
     def compute_confinement_time(self):
         Ef = 22.4
         Ea = 3.5
         tau = Ef / Ea * 1.5 * self.core.compute_core_volume() * self.profile.p_avg * self.thermal_efficiency / self.electric_power
+        return tau
+    
+    def compute_empirical_confinement_time(self):
+        Ip = self.compute_Ip()
+        R = self.Rc
+        a = self.a
+        k = self.k
+        n = self.profile.n_avg * 10 **(-20)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
+        A = 2.5 # average atomic mass
+        H = self.H
+        Pa = self.compute_alpha_heating_power() * 10 ** (-6)
+        
+        tau = 0.145 * H * Ip ** 0.93 * R ** 1.39 * a ** 0.58 * k ** 0.78 * n ** 0.41 * B ** 0.15 * A ** 0.19 / Pa ** 0.69
         return tau
     
     def compute_Ip(self):
@@ -565,6 +641,15 @@ class Tokamak:
         Vtf = 4 * math.pi * self.coil_thickness * (2 * self.Rc - 2 * self.a - 2 * self.blanket_thickness - self.coil_thickness) * ((1 + self.k) * self.a + 2 * self.blanket_thickness + self.coil_thickness)
         cost = (Vb + Vtf) / self.electric_power * 10 ** 6
         return cost
+    
+    def compute_Q(self):
+        Pf = self.compute_thermal_power()
+        Pt = self.compute_thermal_loss_power()
+        Pa = self.compute_alpha_heating_power()
+        Pl = self.compute_radiational_loss_power()
+        Ph = Pt - Pa + Pl
+        Q = Pf / Ph
+        return Q
         
     def print_lawson_criteria(self, filename : str):
         
@@ -572,7 +657,7 @@ class Tokamak:
         T_operation = self.profile.T_avg
         
         T = np.linspace(6, 100, 64, endpoint=False)
-        n = self.profile.compute_n_total()
+        n = self.profile.n_avg
         B = self.B0 * (1 - (self.a + self.blanket_thickness)/self.Rc)
         
         psi = 10 ** (-3)
@@ -594,7 +679,7 @@ class Tokamak:
         ax.set_ylabel("$(N\\tau_E)_{dt}(unit:10^{20}s * m^{-3})$")
         ax.set_xlim([5,100])
         ax.set_ylim([0,10])
-        ax.legend()
+        ax.legend(loc = "upper right")
         fig.tight_layout()
         plt.savefig(filename)
         
@@ -678,6 +763,7 @@ class Tokamak:
         print("| T_avg : {:.2f} keV".format(self.profile.T_avg))
         print("| n_avg : {:.2f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
         print("| p_avg : {:.2f} atm".format(self.profile.p_avg / (1.0 * 10 ** 5)))
+        print("| Q : {:.2f}".format(self.compute_Q()))
         
         beta = self.compute_beta()
         beta_troyon = self.compute_troyon_beta()
@@ -740,6 +826,7 @@ class Tokamak:
                 f.write("\n| T_avg : {:.2f} keV".format(self.profile.T_avg))
                 f.write("\n| n_avg : {:.2f}x10^20 #/m^3".format(self.profile.n_avg / 10 ** 20))
                 f.write("\n| p_avg : {:.2f} atm".format(self.profile.p_avg / (1.0 * 10 ** 5)))
+                f.write("\n| Q : {:.2f}".format(self.compute_Q()))
                 f.write("\n=============== Operation limit ================")
                 f.write("\n| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(ng, n, n_check))
                 f.write("\n| q-kink : {:.3f}, operation q : {:.3f} | {}".format(q_kink, q, q_check))

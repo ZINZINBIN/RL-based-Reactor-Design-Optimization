@@ -118,7 +118,7 @@ class RewardSender:
         q = state['q']
         q_kink = state['q_kink']
         f_NC = state['f_NC']
-        f_BS = state['f_BS']
+        f_BS = state['f_BS'] 
         n_tau = state['n_tau']
         n_tau_lower = state['n_tau_lower']
         cost = state['cost']
