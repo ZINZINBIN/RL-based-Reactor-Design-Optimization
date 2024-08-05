@@ -20,7 +20,7 @@
 | Aspect ratio : 4.000
 | Thermal efficiency : 0.400
 | Electric power : 1000.000 MW
-| Thermal power : 2500.254 MW
+| Thermal power : 2500.319 MW
 | TBR : 3.316
 | beta : 4.125
 | tau : 0.944 s
@@ -32,7 +32,7 @@
 | T_avg : 14.00 keV
 | n_avg : 1.43x10^20 #/m^3
 | p_avg : 7.67 atm
-| Q : 139.54
+| Q : 10.38
 =============== Operation limit ================
 | Greenwald density : 2.547, operation density : 1.426 | O
 | q-kink : 2.000, operation q : 1.554 | X

@@ -158,13 +158,13 @@ class Core:
         Sp = 1 / 16 * Ef * p ** 2 * sig_v / T ** 2
         return Sp
     
-    def compute_radiation_loss_power_density(self, n, T, B, psi):
+    def compute_radiation_loss_power_density(self, n, T, B, psi): # unit: J/m^3 s
         A_br = 1.6 * 10 ** (-38) 
         A_cyc = 6.3 * 10 ** (-20)
         Sl = A_br * (T * 10 ** 3) ** 0.5 * n ** 2 + psi * A_cyc * B ** 2 * (T * 10 ** 3) * n
         return Sl
     
-    def compute_thermal_loss_power_density(self, n, T, tau):
+    def compute_thermal_loss_power_density(self, n, T, tau): # unit: J/m^3 s
         St = 3 * n * T / tau * 1.6 * 10 ** (-19) * 10 ** 3
         return St
     
@@ -414,7 +414,7 @@ class Tokamak:
         return TBR
     
     def compute_fusion_power(self):
-        N = 128
+        N = 256
         rho = np.linspace(0,1,N)[0:-1]
         drho = rho[1] - rho[0]
         p_profile = self.profile.compute_p_profile(N)[0:-1]
@@ -429,7 +429,7 @@ class Tokamak:
         return Pt
     
     def compute_thermal_power(self):
-        N = 128
+        N = 256
         rho = np.linspace(0,1,N)[0:-1]
         drho = rho[1] - rho[0]
         p_profile = self.profile.compute_p_profile(N)[0:-1]
@@ -444,7 +444,7 @@ class Tokamak:
         return Pt
     
     def compute_alpha_heating_power(self):
-        N = 128
+        N = 256
         rho = np.linspace(0,1,N)[0:-1]
         drho = rho[1] - rho[0]
         p_profile = self.profile.compute_p_profile(N)[0:-1]
@@ -458,30 +458,26 @@ class Tokamak:
         Pa = pa * V
         return Pa
     
-    def compute_radiational_loss_power(self):
+    def compute_radiation_loss_power(self):
         psi = 10 ** (-3)
-        N = 128
+        N = 256
         rho = np.linspace(0,1,N)[0:-1]
         drho = rho[1] - rho[0]
         n_profile = self.profile.compute_n_profile(N)[0:-1]
         T_profile = self.profile.compute_T_profile(N)[0:-1]
-        
         B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
         Sl_rho = np.array([self.core.compute_radiation_loss_power_density(n,T,B,psi) for n, T in zip(n_profile, T_profile)])
-        
         pl = np.sum(2 * rho * Sl_rho * drho)
         Pl = pl * self.core.compute_core_volume()
         return Pl
     
     def compute_thermal_loss_power(self):
-        N = 128
-        tau = self.compute_confinement_time()
-
+        N = 256
+        tau = self.compute_thermal_confinement_time()
         rho = np.linspace(0,1,N)[0:-1]
         drho = rho[1] - rho[0]
         n_profile = self.profile.compute_n_profile(N)[0:-1]
         T_profile = self.profile.compute_T_profile(N)[0:-1]
-        
         St_rho = np.array([self.core.compute_thermal_loss_power_density(n,T,tau) for n, T in zip(n_profile, T_profile)])
         pt = np.sum(2 * rho * St_rho * drho)
         Pt = pt * self.core.compute_core_volume()
@@ -502,9 +498,26 @@ class Tokamak:
         B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
         A = 2.5 # average atomic mass
         H = self.H
-        Pa = self.compute_alpha_heating_power() * 10 ** (-6)
+        P = self.compute_alpha_heating_power() * 10 ** (-6)
         
-        tau = 0.145 * H * Ip ** 0.93 * R ** 1.39 * a ** 0.58 * k ** 0.78 * n ** 0.41 * B ** 0.15 * A ** 0.19 / Pa ** 0.69
+        tau = 0.145 * H * Ip ** 0.93 * R ** 1.39 * a ** 0.58 * k ** 0.78 * n ** 0.41 * B ** 0.15 * A ** 0.19 / P ** 0.69
+        return tau
+    
+    def compute_thermal_confinement_time(self):
+        Ip = self.compute_Ip()
+        R = self.Rc
+        k = self.k
+        n = self.profile.n_avg * 10 **(-20)
+        B = self.B0 * (1 - (self.a + self.blanket_thickness) / self.Rc)
+        P = self.compute_alpha_heating_power() * 10 ** (-6) + self.electric_power * 0.1 * 0.5 * 0.8 * 10 ** (-6)
+        epsilon = self.epsilon
+        
+        # mast version
+        tau = 0.052 * Ip ** 0.75 * R ** 2.09 * B ** 0.3 * epsilon ** (-0.84) * k ** 0.88 * n ** 0.32 / P ** 0.47
+        
+        # ITER
+        # A = 2.5 # average atomic mass
+        # tau = 0.0562 * Ip ** 0.93 * R ** 1.97 * B ** 0.15 * epsilon ** (-0.58) * k ** 0.78 * n ** 0.41 * A ** 0.19 / P ** 0.69
         return tau
     
     def compute_Ip(self):
@@ -516,7 +529,7 @@ class Tokamak:
         A = 2.5
         Ip = 7.98 * tau ** 1.08 * (Ea / Ef * self.electric_power / self.thermal_efficiency / 10 ** 6) ** 0.74
         Ip /= self.H ** 1.08 * self.Rc ** 1.49 * self.a ** 0.62 * self.k ** 0.84 * n_ ** 0.44 * B ** 0.16 * A ** 0.2
-        
+    
         return Ip    
     
     def compute_q(self):
@@ -550,7 +563,6 @@ class Tokamak:
         I_CD = self.source.compute_I_CD(self.Rc, P_CD, self.profile.n_avg)
         Ip = self.compute_Ip()
         f_bs = 1 - I_CD / Ip
-        
         return f_bs
     
     def compute_toroidal_current(self, rho:float):
@@ -643,12 +655,26 @@ class Tokamak:
         return cost
     
     def compute_Q(self):
-        Pf = self.compute_thermal_power()
-        Pt = self.compute_thermal_loss_power()
-        Pa = self.compute_alpha_heating_power()
-        Pl = self.compute_radiational_loss_power()
-        Ph = Pt - Pa + Pl
-        Q = Pf / Ph
+        # Method 1: ratio between power
+        # Pf = self.compute_thermal_power()
+        # Pt = self.compute_thermal_loss_power()
+        # Pa = self.compute_alpha_heating_power()
+        # Pl = self.compute_radiation_loss_power()
+        # Ph = Pt - Pa + Pl
+        # Q = Pf / Ph
+        
+        # Method 2: from lawson criteria
+        T = self.profile.T_avg
+        n = self.profile.n_avg
+        B = self.B0 * (1 - (self.a + self.blanket_thickness)/self.Rc)
+        psi = 10 ** (-3)
+        
+        Pf = n ** 2 * self.lawson.compute_avg_cross_section_v(T) * self.lawson.Q_dt / 4
+        Pl = n ** 2 * self.lawson.A_br * (T * 10 ** 3) ** 0.5 + psi * self.lawson.A_cyc * B ** 2 * (T * 10 ** 3) * n
+        Pa = Pf * self.lawson.fc
+        Pt = 3 * n * T * 10 ** 3 / self.compute_confinement_time()
+        Q = Pf / (Pt + Pl - Pa)
+        
         return Q
         
     def print_lawson_criteria(self, filename : str):
@@ -667,7 +693,7 @@ class Tokamak:
         n_tau_Q = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi, self.Q) * 10 ** (-20) for t in T]
         n_tau_break = [self.lawson.compute_n_tau_Q_lower_bound(t, n, B, psi, 1) * 10 ** (-20) for t in T]
         n *= 10 ** (-20)
-        
+    
         fig, ax = plt.subplots(1,1, figsize = (8,6))
         ax.plot(T, n_tau, "k", label = "Lawson criteria (Ignition)")
         ax.plot(T, n_tau_5, "r", label = "Lawson criteria (Q=5)")
