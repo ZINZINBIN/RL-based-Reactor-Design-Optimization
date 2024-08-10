@@ -3,7 +3,7 @@
     - paac.py from https://github.com/Alfredvc/paac/blob/master/paac.py
     - Parallel framework for Efficient Deep RL (ActorCritic Version)
 '''
-from src.rl.ppo import ActorCritic, ReplayBufferPPO
+from src.rl.ppo import ActorCritic
 from src.env import Enviornment
 from src.device import Tokamak
 from src.profile import Profile
@@ -31,7 +31,6 @@ class GlobalMemory:
         
         self.next_states = np.zeros((buffer_size, n_emulator, state_dim), dtype = np.float32)
         self.rewards = np.zeros((buffer_size, n_emulator), dtype = np.float32)
-        self.dones = np.zeros((buffer_size, n_emulator), dtype = np.int32)
         self.probs_a = np.zeros((buffer_size, n_emulator, action_dim), dtype = np.float32)   
         
         self.buffer_size = buffer_size
@@ -41,6 +40,26 @@ class GlobalMemory:
         
     def get_buffer_size(self):
         return self.buffer_size
+    
+def initialize_memory(emulators):
+    init_state = emulators[0].init_state
+    init_action = emulators[0].init_action
+    
+    init_state = np.array([init_state[key] for key in init_state.keys()] + [init_action[key] for key in init_action.keys()])
+    init_state = np.repeat(init_state.reshape(1,-1), len(emulators), axis = 0)
+    
+    init_action = np.array([init_action[key] for key in init_action.keys()])
+    init_action = np.repeat(init_action.reshape(1,-1), len(emulators), axis = 0)
+    
+    # variables: [('state': np.asarray(state : [s1,s2,...])),('action':np.asarray((action:[a1,a2,...]))),('next_state':...),('reward'),('done'),('prob_a')]
+    variables = [
+        (init_state),
+        (init_action),
+        (np.zeros((len(emulators), 19 + 9), dtype = np.float32)),
+        (np.asarray([0 for emulator in emulators], dtype=np.uint8)),
+        (np.asarray([0 for emulator in emulators], dtype=np.uint8)),
+        (np.zeros((len(emulators), 9), dtype = np.float32)),
+    ]
 
 
 def create_environment(
@@ -229,48 +248,53 @@ def train_ppo_parallel(
     # Load shared trajectories
     shared_states, shared_actions, shared_rewards = runners.get_shared_variables()
         
-    local_step = 0
+    i_episode = 0
     
-    for i_episode in range(num_episode):
-        
-        local_step += 1
+    while i_episode <= num_episode:
         
         # Get new action from policy network
         policy_network.eval()
         
-        state_tensor = torch.from_numpy(shared_states)
-        action_tensor, entropy, log_probs, value = policy_network.sample(state_tensor.to(device))
-        
-        for z in range(action_tensor.size()[0]):
-            shared_actions[z] = action_tensor[z].detach().cpu().numpy()
+        for t in range(memory.get_buffer_size()):
             
-        # memory update for optimization
-        # to do
+            # memory update : state 
+            memory.states[t] = shared_states
         
-        # update next action 
-        runners.update_environments()
-        
-        # buffer.barrier()
+            state_tensor = torch.from_numpy(shared_states)
+            action_tensor, entropy, log_probs, value = policy_network.sample(state_tensor.to(device))
+            
+            for z in range(action_tensor.size()[0]):
+                shared_actions[z] = action_tensor[z].detach().cpu().numpy()
+                
+            # memory update : next_state, reward, action, prob_a
+            memory.next_states[t] = shared_states
+            memory.rewards[t] = shared_rewards
+            memory.actions[t] = action_tensor
+            memory.probs_a[t] = log_probs
+            
+            # update next action 
+            runners.update_environments()
+            
+            i_episode += 1
+            
+            # buffer.barrier()
         runners.wait_updated()
         
         # Optimize the network's parameters
-        if local_step >= memory.get_buffer_size():
-            policy_loss = update_policy(
-                memory, 
-                policy_network,
-                policy_optimizer,
-                criterion,
-                gamma,
-                eps_clip,
-                entropy_coeff,
-                device
-            )
-            
-            runners.init_env()
-            loss_list.append(policy_loss.detach().cpu().numpy())
-            
-            local_step = 0
-            
+        policy_loss = update_policy(
+            memory, 
+            policy_network,
+            policy_optimizer,
+            criterion,
+            gamma,
+            eps_clip,
+            entropy_coeff,
+            device
+        )
+        
+        runners.init_env()
+        loss_list.append(policy_loss.detach().cpu().numpy())
+        
         # save weights
         torch.save(policy_network.state_dict(), save_last)
               
