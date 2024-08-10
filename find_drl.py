@@ -111,7 +111,7 @@ if __name__ == "__main__":
     )
     
     reward_sender = RewardSender(
-        w_cost = 0.5, # 0.1
+        w_cost = 0.1, # 0.1
         w_tau = 0.1,
         w_beta = 0.5,
         w_density=0.5,

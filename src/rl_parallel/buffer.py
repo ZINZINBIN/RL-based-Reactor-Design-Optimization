@@ -1,15 +1,12 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-from itertools import count
-from tqdm.auto import tqdm
-from typing import Optional, Dict
-from src.env import Enviornment
+from typing import Optional
 from config.search_space_info import search_space
-from torch.distributions import Normal
 import os, pickle
 from collections import namedtuple, deque
+
+import numpy as np
+from multiprocessing import Queue
+from multiprocessing.sharedctypes import RawArray
+from ctypes import c_uint, c_float, c_double
 
 Transition = namedtuple(
     'Transition',
@@ -19,6 +16,9 @@ Transition = namedtuple(
 default_action_range = search_space
 
 class SharedReplayBuffer(object):
+    
+    NUMPY_TO_C_DTYPE = {np.float32: c_float, np.float64: c_double, np.uint8: c_uint}
+    
     def __init__(self, capacity : int):
         self.memory = deque([], maxlen = capacity)
         self.capacity = capacity

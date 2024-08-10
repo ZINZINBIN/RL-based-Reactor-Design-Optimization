@@ -8,9 +8,9 @@ from src.utility import plot_optimization_status, plot_policy_loss
 from config.device_info import config_benchmark, config_liquid
 from src.rl_parallel.runners import Runners, EmulatorRunner
 from src.rl_parallel.paac import create_environment
-import torch
-import pickle
-import argparse, os, warnings
+
+import argparse, os, warnings, pickle, torch
+import numpy as np
 
 warnings.filterwarnings(action = 'ignore')
 
@@ -89,13 +89,25 @@ if __name__ == "__main__":
         "RF_recirculating_rate": config['RF_recirculating_rate'],
     }
     
-    import numpy as np    
+        
     emulators = np.asarray([create_environment(args_reward) for _ in range(workers * 4)])
+    init_state = emulators[0].init_state
+    init_action = emulators[0].init_action
     
+    init_state = np.array([init_state[key] for key in init_state.keys()] + [init_action[key] for key in init_action.keys()])
+    init_state = np.repeat(init_state.reshape(1,-1), len(emulators), axis = 0)
+    
+    init_action = np.array([init_action[key] for key in init_action.keys()])
+    init_action = np.repeat(init_action.reshape(1,-1), len(emulators), axis = 0)
+    
+    # variables: [('state': np.asarray(state : [s1,s2,...])),('action':np.asarray((action:[a1,a2,...]))),('next_state':...),('reward'),('done'),('prob_a')]
     variables = [
+        (init_state),
+        (init_action),
         (np.zeros((len(emulators), 19 + 9), dtype = np.float32)),
         (np.asarray([0 for emulator in emulators], dtype=np.uint8)),
-        (np.repeat(np.array([init_action[key] for key in init_action.keys()]).reshape(1,-1), len(emulators), axis = 0))
+        (np.asarray([0 for emulator in emulators], dtype=np.uint8)),
+        (np.zeros((len(emulators), 9), dtype = np.float32)),
     ]
     
     runner = Runners(emulators, workers, variables)
@@ -119,5 +131,3 @@ if __name__ == "__main__":
     
     # loss function for critic network
     value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'none')
-    
-    

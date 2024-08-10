@@ -682,6 +682,8 @@ class Tokamak:
         tau_operation = self.compute_confinement_time()
         T_operation = self.profile.T_avg
         
+        Q_operation = self.compute_Q()
+    
         T = np.linspace(6, 100, 64, endpoint=False)
         n = self.profile.n_avg
         B = self.B0 * (1 - (self.a + self.blanket_thickness)/self.Rc)
@@ -699,8 +701,8 @@ class Tokamak:
         ax.plot(T, n_tau_5, "r", label = "Lawson criteria (Q=5)")
         ax.plot(T, n_tau_Q, "b", label = "Lawson criteria (Q={})".format(self.Q))
         ax.plot(T, n_tau_break, "g", label = "Lawson criteria (Breakeven)")
-        ax.scatter(T_operation, tau_operation * n, c = 'r', label = 'Tokamak design')
-    
+        ax.scatter(T_operation, tau_operation * n, c = 'r', label = 'Tokamak design (Q={:.2f})'.format(Q_operation))
+        
         ax.set_xlabel("T(unit : keV)")
         ax.set_ylabel("$(N\\tau_E)_{dt}(unit:10^{20}s * m^{-3})$")
         ax.set_xlim([5,100])

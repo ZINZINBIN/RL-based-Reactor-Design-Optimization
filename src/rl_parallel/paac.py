@@ -3,7 +3,7 @@
     - paac.py from https://github.com/Alfredvc/paac/blob/master/paac.py
     - Parallel framework for Efficient Deep RL (ActorCritic Version)
 '''
-from src.rl.ppo import update_policy, ActorCritic, ReplayBufferPPO
+from src.rl.ppo import ActorCritic, ReplayBufferPPO
 from src.env import Enviornment
 from src.device import Tokamak
 from src.profile import Profile
@@ -22,6 +22,26 @@ from multiprocessing import Queue
 # pytorch framework
 import torch
 import torch.nn as nn
+
+class GlobalMemory:
+    def __init__(self, buffer_size:int, state_dim:int, action_dim:int, n_emulator:int):
+        
+        self.states = np.zeros((buffer_size, n_emulator, state_dim), dtype = np.float32)
+        self.actions = np.zeros((buffer_size, n_emulator, action_dim), dtype = np.float32)
+        
+        self.next_states = np.zeros((buffer_size, n_emulator, state_dim), dtype = np.float32)
+        self.rewards = np.zeros((buffer_size, n_emulator), dtype = np.float32)
+        self.dones = np.zeros((buffer_size, n_emulator), dtype = np.int32)
+        self.probs_a = np.zeros((buffer_size, n_emulator, action_dim), dtype = np.float32)   
+        
+        self.buffer_size = buffer_size
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.n_emulator = n_emulator
+        
+    def get_buffer_size(self):
+        return self.buffer_size
+
 
 def create_environment(
     args_reward:Dict,
@@ -107,8 +127,74 @@ def create_environment(
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
     return env
 
+def update_policy(
+    memory:GlobalMemory, 
+    policy_network : ActorCritic, 
+    policy_optimizer : torch.optim.Optimizer,
+    criterion :Optional[nn.Module] = None,
+    gamma : float = 0.99, 
+    eps_clip : float = 0.1,
+    entropy_coeff : float = 0.1,
+    device : Optional[str] = "cpu"
+    ):
+    
+    policy_network.train()
+
+    if device is None:
+        device = "cpu"
+    
+    if criterion is None:
+        criterion = nn.SmoothL1Loss(reduction = 'none') # Huber Loss for critic network
+    
+    states = memory.states
+    actions = memory.actions
+    next_states = memory.next_states
+    probs_a = memory.probs_a
+    rewards = memory.rewards
+    
+    # Multi-step version reward: Monte Carlo estimate
+    rewards_list = []
+    discounted_reward = np.zeros((rewards.shape[1:]))
+    
+    for t in reversed(range(memory.get_buffer_size())):
+        reward_t = rewards[t]
+        discounted_reward = reward_t + (gamma * discounted_reward)
+        rewards_list.insert(0, discounted_reward)
+        
+    expected_rewards = np.concatenate(rewards_list, axis = 0).reshape(-1,)
+    reward_batch = torch.cat(expected_rewards).float().to(device)
+    
+    state_batch = torch.cat(states.reshape(-1, memory.state_dim)).float().to(device)
+    action_batch = torch.cat(actions.reshape(-1, memory.action_dim)).float().to(device)
+    prob_a_batch = torch.cat(probs_a.reshape(-1, memory.action_dim)).float().to(device) # pi_old
+    
+    next_state_batch = torch.cat(next_states.reshape(-1, memory.state_dim)).float().to(device)
+    
+    policy_optimizer.zero_grad()
+    
+    _, _, next_log_probs, next_value = policy_network.sample(next_state_batch)
+    action, entropy, log_probs, value = policy_network.sample(state_batch)
+    
+    td_target = reward_batch.view_as(next_value) + gamma * next_value
+    
+    delta = td_target - value        
+    ratio = torch.exp(log_probs - prob_a_batch.detach())
+    surr1 = ratio * delta
+    surr2 = torch.clamp(ratio, 1 - eps_clip, 1 + eps_clip) * delta
+    loss = -torch.min(surr1, surr2) + criterion(value, td_target) - entropy_coeff * entropy
+    loss = loss.mean()
+    loss.backward()
+
+    for param in policy_network.parameters():
+        param.grad.data.clamp_(-1,1)
+        
+    policy_optimizer.step()
+    
+    return loss
+    
+
 def train_ppo_parallel(
-    memory : ReplayBufferPPO, 
+    memory : GlobalMemory, 
     num_workers:int,
     num_envs:int,
     args_reward:Dict,
@@ -139,11 +225,27 @@ def train_ppo_parallel(
     
     # multiprocessing
     runners.start()
+    
+    # Load shared trajectories
+    shared_states, shared_actions, shared_rewards = runners.get_shared_variables()
         
+    local_step = 0
+    
     for i_episode in range(num_episode):
         
-        # Load shared trajectories
-        shared_states, shared_actions, shared_next_states, shared_rewards, shared_done, shared_log_probs = runners.get_shared_variables()
+        local_step += 1
+        
+        # Get new action from policy network
+        policy_network.eval()
+        
+        state_tensor = torch.from_numpy(shared_states)
+        action_tensor, entropy, log_probs, value = policy_network.sample(state_tensor.to(device))
+        
+        for z in range(action_tensor.size()[0]):
+            shared_actions[z] = action_tensor[z].detach().cpu().numpy()
+            
+        # memory update for optimization
+        # to do
         
         # update next action 
         runners.update_environments()
@@ -151,11 +253,8 @@ def train_ppo_parallel(
         # buffer.barrier()
         runners.wait_updated()
         
-        # load shared memory
-        memory.push(shared_states, shared_actions, shared_next_states, shared_rewards, shared_done, shared_log_probs)
-        
         # Optimize the network's parameters
-        if memory.__len__() >= memory.capacity:
+        if local_step >= memory.get_buffer_size():
             policy_loss = update_policy(
                 memory, 
                 policy_network,
@@ -169,7 +268,9 @@ def train_ppo_parallel(
             
             runners.init_env()
             loss_list.append(policy_loss.detach().cpu().numpy())
-                
+            
+            local_step = 0
+            
         # save weights
         torch.save(policy_network.state_dict(), save_last)
               

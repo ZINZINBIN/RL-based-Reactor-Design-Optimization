@@ -5,11 +5,12 @@ from multiprocessing import Queue, Process
 from multiprocessing.sharedctypes import RawArray
 from ctypes import c_uint, c_float, c_double
 from typing import List
-from collections import namedtuple
 
-# variables: [(np.asarray(state : [s1,s2,...])), (np.asarray(reward : [r1,r2,...])), np.asarray((action:[a1,a2,...]))]
+# Notion
+# variables: [('state': np.asarray(state : [s1,s2,...])),('action':np.asarray((action:[a1,a2,...]))),('next_state':...),('reward'),('done'),('prob_a')]
+
 class EmulatorRunner(Process):
-    def __init__(self, id:int, envs:List[Enviornment], variables, queue, barrier:Queue):
+    def __init__(self, id:int, envs:List[Enviornment], variables:List, queue:Queue, barrier:Queue):
         super(EmulatorRunner, self).__init__()
         self.id = id
         self.envs = envs
@@ -27,9 +28,11 @@ class EmulatorRunner(Process):
         
     def _run(self):
         
-        for i, (env, action) in enumerate(zip(self.envs, self.variables[-1])):    
-                  
-            ctrl = {
+        [(states), (actions), (rewards)] = self.variables
+        
+        for i, (env, action) in enumerate(zip(self.envs, actions)):    
+            
+            ctrl_new = {
                 'betan':action[0],
                 'k':action[1],
                 'epsilon' : action[2],
@@ -41,13 +44,18 @@ class EmulatorRunner(Process):
                 "RF_recirculating_rate":action[8],
             }
             
-            state, reward, _, _ = env.step(ctrl)
-            state = np.array([state[key] for key in state.keys()] + [ctrl[key] for key in ctrl.keys()])
+            state_new, reward, done, _ = env.step(ctrl_new)
+            next_state = np.array([state_new[key] for key in state_new.keys()] + [ctrl_new[key] for key in ctrl_new.keys()])
+               
+            self.variables[0][i] = next_state 
+            self.variables[1][i] = action
+            self.variables[2][i] = reward
             
-            self.variables[0][0] = state
-            self.variables[1][0] = reward
+            # print("Process ID:{} / Parent ID: {} run".format(os.getpid(), os.getppid()))
             
-            print("Process ID:{} / Parent ID: {} run".format(os.getpid(), os.getppid()))
+            # update state
+            env.current_state = state_new
+            env.current_action = ctrl_new
             
         self.barrier.put(True)
 
@@ -55,14 +63,14 @@ class Runners(object):
     
     NUMPY_TO_C_DTYPE = {np.float32: c_float, np.float64: c_double, np.uint8: c_uint}
 
-    def __init__(self, emulators, workers:int, variables):
+    def __init__(self, emulators:List[Enviornment], workers:int, variables):
         self.variables = [self._get_shared(var) for var in variables]
         self.workers = workers
         self.queues = [Queue() for _ in range(workers)]
         self.barrier = Queue()
-        
+           
         self.runners = [
-            EmulatorRunner(i, emulators, vars, self.queues[i], self.barrier) for i, (emulators, vars) in 
+            EmulatorRunner(i, emulators_, vars, self.queues[i], self.barrier) for i, (emulators_, vars) in 
             enumerate(zip(np.split(emulators, workers), zip(*[np.split(var, workers) for var in self.variables])))
         ]
         
@@ -98,5 +106,5 @@ class Runners(object):
             queue.put(True)
 
     def wait_updated(self):
-        for wd in range(self.workers):
+        for _ in range(self.workers):
             self.barrier.get()
