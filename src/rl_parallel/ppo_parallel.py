@@ -17,18 +17,14 @@ from config.search_space_info import search_space
 
 from torch.distributions import Normal
 import os, pickle
-from collections import namedtuple, deque
+from collections import namedtuple
 
 # Message type creator
 MsgUpdateRequest = namedtuple('MsgUpdateRequest', ['agent', 'update'])
 MsgRewardInfo = namedtuple('MsgRewardInfo', ['agent', 'episode', 'reward'])
+MsgMaxReached = namedtuple('MsgMaxReached', ['agent', 'reached'])
 
-# transition
-Transition = namedtuple(
-    'Transition',
-    ('state','action','next_state','reward','done','prob_a')
-)
-
+# action range for policy network
 default_action_range = search_space
 
 def create_environment(

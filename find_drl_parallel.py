@@ -32,6 +32,7 @@ def parsing():
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
     
     # Parallel RL setup
+    parser.add_argument("--n_workers", type = int, default = 8)
     
     # Visualization
     parser.add_argument("--smoothing_temporal_length", type = int, default = 16)
@@ -83,7 +84,7 @@ if __name__ == "__main__":
         "reward_fail" : -1.0
     }    
     
-    n_workers = 16
+    n_workers = args['n_workers']
     
     # loss function for critic network
     value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'none')
@@ -105,7 +106,7 @@ if __name__ == "__main__":
     save_result = "./results/params_search_{}.pkl".format(tag)
     
     # Design optimization
-    print("============ Design optimization ============")
+    print("============ Design optimization ===========")
     train_ppo_parallel(
         n_workers,
         args['buffer_size'],

@@ -2,61 +2,34 @@ from src.device import Tokamak
 from src.profile import Profile
 from src.source import CDsource
 from src.env import Enviornment
-from src.rl.ppo import train_ppo, ActorCritic, ReplayBufferPPO
 from src.rl.reward import RewardSender
-from src.utility import plot_optimization_status, plot_policy_loss, find_optimal_case
+from src.utility import plot_optimization_status, find_optimal_case
+from src.gridsearch.brute_force import search_param_space
 from config.device_info import config_benchmark, config_liquid
-import torch
 import pickle
 import argparse, os, warnings
 
 warnings.filterwarnings(action = 'ignore')
 
 def parsing():
-    parser = argparse.ArgumentParser(description="Tokamak design optimization based on single-step RL")
-    
-    # tag for labeling the optimization process
-    parser.add_argument("--tag", type = str, default = "")
-    
+    parser = argparse.ArgumentParser(description="Tokamak design optimization based on Brute force algorithm")
+
     # Select blanket type: liquid / solid
     parser.add_argument("--blanket_type", type = str, default = "solid", choices = ['liquid','solid'])
-    
-    # GPU allocation
-    parser.add_argument("--gpu_num", type = int, default = 0)
-    
-    # PPO setup
-    parser.add_argument("--buffer_size", type = int, default = 4)
+
+    # Setup
     parser.add_argument("--num_episode", type = int, default = 10000)
     parser.add_argument("--verbose", type = int, default = 1000)
-    parser.add_argument("--lr", type = float, default = 1e-3)
-    parser.add_argument("--gamma", type = float, default = 0.999)
-    parser.add_argument("--eps_clip", type = float, default = 0.2)
-    parser.add_argument("--entropy_coeff", type = float, default = 0.05)
-    
-    # Visualization
-    parser.add_argument("--smoothing_temporal_length", type = int, default = 16)
-    
-    args = vars(parser.parse_args()) 
+    parser.add_argument("--n_grid", type = int, default = 10)
+
+    args = vars(parser.parse_args())
 
     return args
 
-# torch device state
-print("=============== Device setup ===============")
-print("torch device avaliable : ", torch.cuda.is_available())
-print("torch current device : ", torch.cuda.current_device())
-print("torch device num : ", torch.cuda.device_count())
-print("torch version : ", torch.__version__)
-    
 if __name__ == "__main__":
-    
+
     args = parsing()
-    
-    # device allocation
-    if(torch.cuda.device_count() >= 1):
-        device = "cuda:{}".format(args['gpu_num'])
-    else:
-        device = 'cpu'
-    
+
     if args['blanket_type'] == 'liquid':
         config = config_liquid
     else:
@@ -70,12 +43,12 @@ if __name__ == "__main__":
         T_avg = config["T_avg"], 
         p_avg = config['p_avg']
     )
-    
+
     source = CDsource(
         conversion_efficiency = config['conversion_efficiency'],
         absorption_efficiency = config['absorption_efficiency'],
     )
-    
+
     tokamak = Tokamak(
         profile,
         source,
@@ -109,9 +82,9 @@ if __name__ == "__main__":
         RF_recirculating_rate= config['RF_recirculating_rate'],
         flux_ratio = config['flux_ratio']
     )
-    
+
     reward_sender = RewardSender(
-        w_cost = 0.1, # 0.1
+        w_cost = 0.1,
         w_tau = 0.1,
         w_beta = 0.5,
         w_density=0.5,
@@ -123,7 +96,7 @@ if __name__ == "__main__":
         a = 1.0,
         reward_fail = -1.0
     )
-    
+
     init_action = {
         'betan':config['betan'],
         'k':config['k'],
@@ -135,71 +108,35 @@ if __name__ == "__main__":
         "armour_thickness" : config['armour_thickness'],
         "RF_recirculating_rate": config['RF_recirculating_rate'],
     }
-    
+
     init_state = tokamak.get_design_performance()
-    
+
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
-    
-    # policy and value network
-    policy_network = ActorCritic(input_dim = 19 + 9, mlp_dim = 64, n_actions = 9, std = 0.25)
-    
-    # gpu allocation
-    policy_network.to(device)
-    
-    # optimizer    
-    policy_optimizer = torch.optim.RMSprop(policy_network.parameters(), lr = args['lr'])
-    
-    # loss function for critic network
-    value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'none')
-    
-    # memory
-    memory = ReplayBufferPPO(args['buffer_size'])
-    
+
     # directory
-    if not os.path.exists("./weights"):
-        os.makedirs("./weights")
-    
     if not os.path.exists("./results"):
         os.makedirs("./results")
-        
-    if len(args['tag']) > 0:
-        tag = "PPO_{}_{}".format(args['blanket_type'], args['tag'])
-    else:
-        tag = "PPO_{}".format(args['blanket_type'])
-        
-    save_best = "./weights/{}_best.pt".format(tag)
-    save_last = "./weights/{}_last.pt".format(tag)
+
+    tag = "gridsearch_{}".format(args['blanket_type'])
     save_result = "./results/params_search_{}.pkl".format(tag)
-    
+
     # Design optimization
     print("============ Design optimization ============")
-    result = train_ppo(
-        env, 
-        memory,
-        policy_network,
-        policy_optimizer,
-        value_loss_fn,
-        args['gamma'],
-        args['eps_clip'],
-        args['entropy_coeff'],
-        device,
+    result = search_param_space(
+        env,
         args['num_episode'],
         args['verbose'],
-        save_best,
-        save_last,
+        args['n_grid']
     )
-    
+
     print("======== Logging optimization process ========")
     optimization_status = env.optim_status
-    plot_optimization_status(optimization_status, args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
-    
-    plot_policy_loss(result['loss'], args['smoothing_temporal_length'], args['buffer_size'], "./results/{}_optimization".format(tag))
-    
+    plot_optimization_status(optimization_status, args['verbose'], "./results/gridsearch_optimization")
+
     with open(save_result, 'wb') as file:
         pickle.dump(result, file)
-        
-    # save optimal design information
-    find_optimal_case(result, {"save_dir":"./results", "tag":"ppo"})
-    
-    # exit
+
     env.close()
+    
+    # save optimal design information
+    find_optimal_case(result, {"save_dir":"./results", "tag":"gridsearch"})
