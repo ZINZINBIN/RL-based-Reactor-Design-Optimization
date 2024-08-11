@@ -19,8 +19,6 @@ from torch.distributions import Normal
 import os, pickle
 from collections import namedtuple, deque
 
-mp.set_start_method('spawn', True)
-
 # Message type creator
 MsgUpdateRequest = namedtuple('MsgUpdateRequest', ['agent', 'update'])
 MsgRewardInfo = namedtuple('MsgRewardInfo', ['agent', 'episode', 'reward'])
@@ -149,9 +147,15 @@ class ReplayBufferPPO:
         self.probs_a = torch.zeros((max_timestep, n_emulator, action_dim)).to(device).share_memory_()
     
     def clear(self):
+        self.states.cpu()
+        self.actions.cpu()
+        self.next_states.cpu()
+        self.rewards.cpu()
+        self.probs_a.cpu()
+        
         self.states = None
         self.actions = None
-        self.next_state = None
+        self.next_states = None
         self.rewards = None
         self.probs_a = None
     
@@ -261,7 +265,7 @@ class Agent(mp.Process):
         
         self.memory.states[:, proc_id, :] = state_tensor
         self.memory.actions[:, proc_id, :] = action_tensor
-        self.memory.rewards[:, proc_id, :] = reward_tensor
+        self.memory.rewards[:, proc_id] = reward_tensor
         self.memory.next_states[:, proc_id, :] = next_state_tensor
         self.memory.probs_a[:, proc_id, :] = prob_a_tensor
         
@@ -409,7 +413,6 @@ def train_ppo_parallel(
     update_iteration = 0
     log_iteration = 0
     
-    
     # initialize subprocesses experience
     for agent_id in range(num_workers):
         p_start, p_end = mp.Pipe()
@@ -419,38 +422,36 @@ def train_ppo_parallel(
         agents.append(agent)
         pipes.append(p_start)
     
-    
     while True:
         for i, conn in enumerate(pipes):
             if conn.poll():
                 msg = conn.recv()
     
-            if type(msg).__name__ == "MsgMaxReached":
-                agent_completed[i] = True
-            
-            elif type(msg).__name__ == "MsgUpdateRequest":
-                update_request[i] = True
+                if type(msg).__name__ == "MsgMaxReached":
+                    agent_completed[i] = True
                 
-                if False not in update_request:
-                    policy_loss = update_policy(
-                        memory,
-                        policy_network,
-                        policy_optimizer,
-                        criterion,
-                        gamma,
-                        eps_clip,
-                        entropy_coeff,
-                        device
-                    )
+                elif type(msg).__name__ == "MsgUpdateRequest":
+                    update_request[i] = True
                     
-                    update_request = [False] * num_workers
-                    update_iteration += 1
-                    msg = update_iteration
-                
-                    for pipe in pipes:
-                        pipe.send(msg)
+                    if False not in update_request:
+                        policy_loss = update_policy(
+                            memory,
+                            policy_network,
+                            policy_optimizer,
+                            criterion,
+                            gamma,
+                            eps_clip,
+                            entropy_coeff,
+                            device
+                        )
+                        
+                        update_request = [False] * num_workers
+                        update_iteration += 1
+                        msg = update_iteration
+                    
+                        for pipe in pipes:
+                            pipe.send(msg)
             
-
         if False not in agent_completed:
             print("Parallelized RL optimization complete..!")
             break

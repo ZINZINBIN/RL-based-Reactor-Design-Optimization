@@ -4,6 +4,9 @@ from src.rl_parallel.ppo_parallel import train_ppo_parallel
 
 import argparse, os, warnings, pickle, torch
 import numpy as np
+import torch.multiprocessing as mp
+
+mp.set_start_method('spawn', True)
 
 warnings.filterwarnings(action = 'ignore')
 
@@ -36,15 +39,15 @@ def parsing():
     args = vars(parser.parse_args()) 
 
     return args
-
-# torch device state
-print("=============== Device setup ===============")
-print("torch device avaliable : ", torch.cuda.is_available())
-print("torch current device : ", torch.cuda.current_device())
-print("torch device num : ", torch.cuda.device_count())
-print("torch version : ", torch.__version__)
     
 if __name__ == "__main__":
+    
+    # torch device state
+    print("=============== Device setup ===============")
+    print("torch device avaliable : ", torch.cuda.is_available())
+    print("torch current device : ", torch.cuda.current_device())
+    print("torch device num : ", torch.cuda.device_count())
+    print("torch version : ", torch.__version__)
     
     args = parsing()
     
