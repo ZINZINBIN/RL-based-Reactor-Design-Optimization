@@ -33,6 +33,19 @@ def parsing():
     parser.add_argument("--eps_clip", type = float, default = 0.2)
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
     
+    # Reward setup
+    parser.add_argument("--w_cost", type = float, default = 0.1)
+    parser.add_argument("--w_tau", type = float, default = 0.1)
+    parser.add_argument("--w_beta", type = float, default = 0.5)
+    parser.add_argument("--w_density", type = float, default = 0.5)
+    parser.add_argument("--w_q", type = float, default = 1.0)
+    parser.add_argument("--w_bs", type = float, default = 1.0)
+    parser.add_argument("--w_i", type = float, default = 1.5)
+    parser.add_argument("--cost_r", type = float, default = 1.0)
+    parser.add_argument("--tau_r", type = float, default = 1.0)
+    parser.add_argument("--a", type = float, default = 1.0)
+    parser.add_argument("--reward_fail", type = float, default = -1.0)
+    
     # Visualization
     parser.add_argument("--smoothing_temporal_length", type = int, default = 16)
     
@@ -111,17 +124,17 @@ if __name__ == "__main__":
     )
     
     reward_sender = RewardSender(
-        w_cost = 0.1, # 0.1
-        w_tau = 0.1,
-        w_beta = 0.5,
-        w_density=0.5,
-        w_q = 1.0,
-        w_bs = 1.0,
-        w_i = 1.5,
-        cost_r = 1.0,
-        tau_r = 1.0,
-        a = 1.0,
-        reward_fail = -1.0
+        w_cost = args['w_cost'],
+        w_tau = args['w_tau'],
+        w_beta = args['w_beta'],
+        w_density=args['w_density'],
+        w_q = args['w_q'],
+        w_bs = args['w_bs'],
+        w_i = args['w_i'],
+        cost_r = args['cost_r'],
+        tau_r = args['tau_r'],
+        a = args['a'],
+        reward_fail = args['reward_fail']
     )
     
     init_action = {
