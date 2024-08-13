@@ -178,9 +178,9 @@ def update_policy(
     states, actions, next_states, rewards, probs_a = memory.get()
     
     state_batch = states.view((memory.max_timestep * memory.n_emulator, memory.state_dim)).float() 
-    action_batch = states.view((memory.max_timestep * memory.n_emulator, memory.action_dim)).float()
-    next_state_batch = states.view((memory.max_timestep * memory.n_emulator, memory.state_dim)).float()
-    prob_a_batch = states.view((memory.max_timestep * memory.n_emulator, memory.action_dim)).float()
+    action_batch = actions.view((memory.max_timestep * memory.n_emulator, memory.action_dim)).float()
+    next_state_batch = next_states.view((memory.max_timestep * memory.n_emulator, memory.state_dim)).float()
+    prob_a_batch = probs_a.view((memory.max_timestep * memory.n_emulator, memory.action_dim)).float()
 
     # Multi-step version reward: Monte Carlo estimate
     rewards_list = []
@@ -354,6 +354,8 @@ class Agent(mp.Process):
                 probs_a.clear()
                 
                 local_timestep = 0
+                
+        print("Agent {} eneded, Process ID {}".format(self.name, os.getpid()))
                 
 def train_ppo_parallel(
     num_workers:int,

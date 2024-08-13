@@ -575,28 +575,37 @@ class Tokamak:
         Jt_rho = Ip / math.pi / a_hat ** 2 * (9/8) * rho ** 0.25 * (alpha ** 2 * (1-x) * np.exp(alpha * x) / (np.exp(alpha) - 1 - alpha))
         return Jt_rho
     
-    def compute_normalized_li(self):
+    def compute_Bp_rho(self, rho:float):
         a = self.a
         mu = 4 * math.pi * 10 ** (-7)
-        
-        n = 2048
+        n = 256
         drho = a / n
-        rho_list = [a * i / n for i in range(0, n)]
+        n_max = int(rho // drho)
         
-        rho_Bp = []
-        Bp = []
+        rho_list = [drho * i for i in range(0, n_max)]
+        integral = sum([self.compute_toroidal_current(rho_) * 2 * math.pi * rho_ * drho for rho_ in rho_list])
+        Bp_rho = integral * mu / 2 / math.pi / rho
         
-        for idx, rho in enumerate(rho_list):
-            
-            if idx % 64 == 63 and idx > 0:
-                rho_Bp.append(rho)
-                integral = sum([self.compute_toroidal_current(rho_) * 2 * math.pi * rho_ * drho for rho_ in rho_list[:idx]])
-                
-                Bp_rho = integral * mu / 2 / math.pi / rho
-                Bp.append(Bp_rho)
+        return Bp_rho
+    
+    def compute_normalized_li(self):
+        mu = 4 * math.pi * 10 ** (-7)
+        Li = self.compute_li()
+        li = 2 * Li / mu / self.Rc
+        return li
+    
+    def compute_li(self):
+        a = self.a
+        mu = 4 * math.pi * 10 ** (-7)
+        Ip = self.compute_Ip()
         
-        li = sum([Bp_rho ** 2 * 2 * rho * (rho_Bp[1] - rho_Bp[0]) for rho, Bp_rho in zip(rho_Bp, Bp)]) / Bp[-1] ** 2 / a ** 2
+        n = 64
+        drho = a / n
+        rho_list = [a * i / n for i in range(1, n)]
         
+        Bp_max = mu * Ip / 2 / math.pi / a
+        Bp2_avg = sum([2 * rho * drho * self.compute_Bp_rho(rho) ** 2 for rho in rho_list]) / a ** 2
+        li = mu * Bp2_avg / 2 / Bp_max ** 2
         return li
     
     def compute_NC_bootstrap_fraction(self):
