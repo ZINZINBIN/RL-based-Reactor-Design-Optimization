@@ -5,6 +5,7 @@ import torch.multiprocessing as mp
 
 import numpy as np
 from typing import Optional, Dict, List
+from multiprocessing import Manager
 
 from src.env import Enviornment
 from src.rl.ppo import ActorCritic
@@ -228,7 +229,8 @@ class Agent(mp.Process):
         verbose:int, 
         args_reward:Dict,
         policy_old:ActorCritic,
-        device:str
+        device:str,
+        trajectory:Dict,
         ):
         
         mp.Process.__init__(self,name = name)
@@ -246,6 +248,8 @@ class Agent(mp.Process):
         
         self.policy = policy_old
         self.device = device
+        
+        self.trajectory = trajectory
         
     def convert_tensor(self, states, actions, rewards, next_states, probs_a):
         state_tensor = torch.cat(states).float()
@@ -274,6 +278,7 @@ class Agent(mp.Process):
         rewards = []
         probs_a = []
         next_states = []
+        episodes = []
         
 
         i_episode = 0
@@ -355,8 +360,32 @@ class Agent(mp.Process):
                 
                 local_timestep = 0
                 
-        print("Agent {} eneded, Process ID {}".format(self.name, os.getpid()))
+                # Reward sending
+                msg = MsgRewardInfo(self.proc_id, i_episode, reward)
+                self.pipe.send(msg)
                 
+        print("Agent {} eneded, Process ID {} ...!".format(self.name, os.getpid()))
+    
+        self.trajectory[int(self.name)] = {
+            "control":self.env.actions,
+            "state":self.env.states,
+            "reward":self.env.rewards,
+            "tau":self.env.taus,
+            "beta_limit" : self.env.beta_limits,
+            "q_limit" : self.env.q_limits,
+            "n_limit" : self.env.n_limits,
+            "f_limit" : self.env.f_limits,
+            "i_limit" : self.env.i_limits,
+            "cost" : self.env.costs,
+            "optim_status":self.env.optim_status
+        }
+        
+        msg = MsgMaxReached(self.proc_id, True)
+        self.pipe.send(msg)
+        
+        print("Agent {} saved trajectory...!".format(self.name))
+        
+
 def train_ppo_parallel(
     num_workers:int,
     buffer_size:int,
@@ -408,13 +437,16 @@ def train_ppo_parallel(
     reward_list = []
     loss_list = []
     
+    trajs = Manager().dict()
+    
     update_iteration = 0
     log_iteration = 0
+    max_update_iteration = num_episode // buffer_size
     
     # initialize subprocesses experience
     for agent_id in range(num_workers):
         p_start, p_end = mp.Pipe()
-        agent = Agent(str(agent_id), memory, p_end, buffer_size, num_episode, gamma, verbose, args_reward, policy_network_old, device)
+        agent = Agent(str(agent_id), memory, p_end, buffer_size, num_episode, gamma, verbose, args_reward, policy_network_old, device, trajs)
         agent.start()
         
         agents.append(agent)
@@ -443,18 +475,68 @@ def train_ppo_parallel(
                             device
                         )
                         
+                        loss_list.append(policy_loss.detach().cpu())
+                        
                         update_request = [False] * num_workers
                         update_iteration += 1
                         msg = update_iteration
                     
                         for pipe in pipes:
                             pipe.send(msg)
-            
+                            
+                        # save weights
+                        torch.save(policy_network.state_dict(), save_last)
+                            
+                elif type(msg).__name__ == "MsgRewardInfo":
+                    pass
+                
         if False not in agent_completed:
             print("Parallelized RL optimization complete..!")
             break
         
+        if update_iteration >= max_update_iteration:
+            print("Update iteration exceeds..!")
+            break
+    
     for agent in agents:
-        agent.terminate()
+        agent.join()
+        
+    # Shared memory removed
+    agents[0].memory.clear()
+        
+    # GPU -> CPU
+    policy_network_old.cpu()
+    policy_network.cpu()
+    
+    trajs['loss'] = loss_list
+    
+    result = {}
+    optim_status = {}
+    
+    for proc_id in range(num_workers):
+        
+        for key in trajs[proc_id].keys():
             
-    return None
+            if key == "optim_status":
+                continue
+            
+            if proc_id == 0:
+                result[key] = trajs[proc_id][key]
+            else:
+                result[key] += trajs[proc_id][key]
+                
+    result['loss'] = trajs['loss']
+                
+    for proc_id in range(num_workers):
+        
+        for key in trajs[proc_id]['optim_status'].keys():
+    
+            if proc_id == 0:
+                optim_status[key] = np.array(trajs[proc_id]['optim_status'][key])
+            else:
+                optim_status[key] += np.array(trajs[proc_id]['optim_status'][key])
+                
+    for key in optim_status.keys():
+        optim_status[key] /= num_workers
+    
+    return result, optim_status

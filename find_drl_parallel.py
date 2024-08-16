@@ -1,4 +1,4 @@
-from src.utility import plot_optimization_status, plot_policy_loss
+from src.utility import plot_optimization_status, plot_policy_loss, find_optimal_case
 from config.device_info import config_benchmark, config_liquid
 from src.rl_parallel.ppo_parallel import train_ppo_parallel
 
@@ -45,7 +45,7 @@ def parsing():
     parser.add_argument("--reward_fail", type = float, default = -1.0)
     
     # Parallel RL setup
-    parser.add_argument("--n_workers", type = int, default = 8)
+    parser.add_argument("--n_workers", type = int, default = 5)
     
     # Visualization
     parser.add_argument("--smoothing_temporal_length", type = int, default = 16)
@@ -56,14 +56,15 @@ def parsing():
     
 if __name__ == "__main__":
     
+    args = parsing()
+    
     # torch device state
     print("=============== Device setup ===============")
     print("torch device avaliable : ", torch.cuda.is_available())
     print("torch current device : ", torch.cuda.current_device())
     print("torch device num : ", torch.cuda.device_count())
     print("torch version : ", torch.__version__)
-    
-    args = parsing()
+    print("# of workers for parallel processing : {}".format(args['n_workers']))
     
     # device allocation
     if(torch.cuda.device_count() >= 1):
@@ -120,7 +121,7 @@ if __name__ == "__main__":
     
     # Design optimization
     print("============ Design optimization ===========")
-    train_ppo_parallel(
+    result, optimization_status = train_ppo_parallel(
         n_workers,
         args['buffer_size'],
         args_reward,
@@ -136,3 +137,14 @@ if __name__ == "__main__":
         save_best,
         save_last
     )
+    
+    print("======== Logging optimization process ========")
+    plot_optimization_status(optimization_status, args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
+    
+    plot_policy_loss(result['loss'], args['smoothing_temporal_length'], args['buffer_size'], "./results/{}_optimization".format(tag))
+    
+    with open(save_result, 'wb') as file:
+        pickle.dump(result, file)
+        
+    # save optimal design information
+    find_optimal_case(result, {"save_dir":"./results", "tag":"ppo-parallel"})
