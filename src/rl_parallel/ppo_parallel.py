@@ -286,6 +286,11 @@ class Agent(mp.Process):
     
         while i_episode <= self.num_episode:
             
+            if i_episode == self.num_episode:
+                msg = MsgMaxReached(self.proc_id, True)
+                self.pipe.send(msg)
+                break
+            
             if self.env.current_state is None:
                 state = self.env.init_state
                 ctrl = self.env.init_action
@@ -360,8 +365,9 @@ class Agent(mp.Process):
                 
                 local_timestep = 0
                 
+            if i_episode // self.verbose == 0 and i_episode > 9:
                 # Reward sending
-                msg = MsgRewardInfo(self.proc_id, i_episode, reward)
+                msg = MsgRewardInfo(self.proc_id, i_episode, reward.item())
                 self.pipe.send(msg)
                 
         print("Agent {} eneded, Process ID {} ...!".format(self.name, os.getpid()))
@@ -432,16 +438,15 @@ def train_ppo_parallel(
     
     update_request = [False] * num_workers
     agent_completed = [False] * num_workers
+   
     
-    best_reward = 0
-    reward_list = []
+    reward_record = [[None]*num_workers]
     loss_list = []
     
     trajs = Manager().dict()
     
     update_iteration = 0
     log_iteration = 0
-    max_update_iteration = num_episode // buffer_size
     
     # initialize subprocesses experience
     for agent_id in range(num_workers):
@@ -488,14 +493,26 @@ def train_ppo_parallel(
                         torch.save(policy_network.state_dict(), save_last)
                             
                 elif type(msg).__name__ == "MsgRewardInfo":
-                    pass
+                    pass 
+                
+                    # reward = msg.reward
+                    # idx = int(msg.episode / verbose)
+                    
+                    # if len(reward_record) < idx:
+                    #     reward_record.append([None]*num_workers)
+                    
+                    # reward_record[idx-1][i] = reward
+                    
+                    # if (None not in reward_record[log_iteration]):
+                    #     eps_reward = reward_record[log_iteration]
+            
+                    #     for i in range(len(eps_reward)):
+                    #         print("Agent : {} episode {}, reward : {:.2f}".format(i, (log_iteration + 1)*verbose, eps_reward[i]))
+              
+                    #     log_iteration += 1 
                 
         if False not in agent_completed:
             print("Parallelized RL optimization complete..!")
-            break
-        
-        if update_iteration >= max_update_iteration:
-            print("Update iteration exceeds..!")
             break
     
     for agent in agents:
@@ -507,8 +524,6 @@ def train_ppo_parallel(
     # GPU -> CPU
     policy_network_old.cpu()
     policy_network.cpu()
-    
-    trajs['loss'] = loss_list
     
     result = {}
     optim_status = {}
@@ -525,7 +540,7 @@ def train_ppo_parallel(
             else:
                 result[key] += trajs[proc_id][key]
                 
-    result['loss'] = trajs['loss']
+    result['loss'] = loss_list
                 
     for proc_id in range(num_workers):
         

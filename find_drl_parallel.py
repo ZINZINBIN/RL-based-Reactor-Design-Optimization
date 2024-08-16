@@ -25,7 +25,7 @@ def parsing():
     # PPO setup
     parser.add_argument("--buffer_size", type = int, default = 4)
     parser.add_argument("--num_episode", type = int, default = 10000)
-    parser.add_argument("--verbose", type = int, default = 10000)
+    parser.add_argument("--verbose", type = int, default = 1000)
     parser.add_argument("--lr", type = float, default = 1e-3)
     parser.add_argument("--gamma", type = float, default = 0.999)
     parser.add_argument("--eps_clip", type = float, default = 0.2)
