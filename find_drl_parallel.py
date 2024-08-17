@@ -26,7 +26,7 @@ def parsing():
     parser.add_argument("--buffer_size", type = int, default = 4)
     parser.add_argument("--num_episode", type = int, default = 10000)
     parser.add_argument("--verbose", type = int, default = 1000)
-    parser.add_argument("--lr", type = float, default = 1e-3)
+    parser.add_argument("--lr", type = float, default = 1e-4)
     parser.add_argument("--gamma", type = float, default = 0.999)
     parser.add_argument("--eps_clip", type = float, default = 0.2)
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
@@ -45,7 +45,7 @@ def parsing():
     parser.add_argument("--reward_fail", type = float, default = -1.0)
     
     # Parallel RL setup
-    parser.add_argument("--n_workers", type = int, default = 5)
+    parser.add_argument("--n_workers", type = int, default = 6)
     
     # Visualization
     parser.add_argument("--smoothing_temporal_length", type = int, default = 16)

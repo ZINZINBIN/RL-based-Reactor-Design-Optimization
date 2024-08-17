@@ -365,7 +365,7 @@ class Agent(mp.Process):
                 
                 local_timestep = 0
                 
-            if i_episode // self.verbose == 0 and i_episode > 9:
+            if i_episode % self.verbose == 0:
                 # Reward sending
                 msg = MsgRewardInfo(self.proc_id, i_episode, reward.item())
                 self.pipe.send(msg)
@@ -492,24 +492,23 @@ def train_ppo_parallel(
                         # save weights
                         torch.save(policy_network.state_dict(), save_last)
                             
-                elif type(msg).__name__ == "MsgRewardInfo":
-                    pass 
+                elif type(msg).__name__ == "MsgRewardInfo": 
                 
-                    # reward = msg.reward
-                    # idx = int(msg.episode / verbose)
+                    reward = msg.reward
+                    idx = int(msg.episode / verbose)
                     
-                    # if len(reward_record) < idx:
-                    #     reward_record.append([None]*num_workers)
+                    if len(reward_record) < idx:
+                        reward_record.append([None]*num_workers)
                     
-                    # reward_record[idx-1][i] = reward
+                    reward_record[idx-1][i] = reward
                     
-                    # if (None not in reward_record[log_iteration]):
-                    #     eps_reward = reward_record[log_iteration]
+                    if (None not in reward_record[log_iteration]):
+                        eps_reward = reward_record[log_iteration]
             
-                    #     for i in range(len(eps_reward)):
-                    #         print("Agent : {} episode {}, reward : {:.2f}".format(i, (log_iteration + 1)*verbose, eps_reward[i]))
+                        for i in range(len(eps_reward)):
+                            print("Agent : {} episode {}, reward : {:.2f}".format(i, (log_iteration + 1)*verbose, eps_reward[i]))
               
-                    #     log_iteration += 1 
+                        log_iteration += 1 
                 
         if False not in agent_completed:
             print("Parallelized RL optimization complete..!")
