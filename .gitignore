@@ -3,6 +3,7 @@ weights/*
 
 # results pickle
 results/*.pickle
+results/*.pkl
 
 # pycache
 *.pyc

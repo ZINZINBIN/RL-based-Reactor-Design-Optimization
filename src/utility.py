@@ -157,7 +157,9 @@ def plot_policy_loss(
     loss = np.repeat(np.array(loss_list).reshape(-1,1), repeats = buffer_size, axis = 1).reshape(-1,)
     episode = np.array(range(1, len(loss)+1, 1))
     
+    # clip the invalid value
     
+    # temperal average
     x_mean, loss_mean, loss_lower, loss_upper = temperal_average(episode, loss, temporal_length)
     
     fig = plt.figure(figsize = (8,4))

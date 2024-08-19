@@ -148,8 +148,8 @@ if __name__ == "__main__":
 
     with open(save_result, 'wb') as file:
         pickle.dump(result, file)
-
-    env.close()
     
     # save optimal design information
     find_optimal_case(result, {"save_dir":"./results", "tag":"gridsearch"})
+    
+    env.close()

@@ -26,7 +26,7 @@ def parsing():
     parser.add_argument("--buffer_size", type = int, default = 4)
     parser.add_argument("--num_episode", type = int, default = 10000)
     parser.add_argument("--verbose", type = int, default = 1000)
-    parser.add_argument("--lr", type = float, default = 1e-4)
+    parser.add_argument("--lr", type = float, default = 1e-3)
     parser.add_argument("--gamma", type = float, default = 0.999)
     parser.add_argument("--eps_clip", type = float, default = 0.2)
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     print("======== Logging optimization process ========")
     plot_optimization_status(optimization_status, args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
     
-    plot_policy_loss(result['loss'], args['smoothing_temporal_length'], args['buffer_size'], "./results/{}_optimization".format(tag))
+    plot_policy_loss(result['loss'], args['buffer_size'], args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
     
     with open(save_result, 'wb') as file:
         pickle.dump(result, file)

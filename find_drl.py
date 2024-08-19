@@ -206,7 +206,7 @@ if __name__ == "__main__":
     optimization_status = env.optim_status
     plot_optimization_status(optimization_status, args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
     
-    plot_policy_loss(result['loss'], args['smoothing_temporal_length'], args['buffer_size'], "./results/{}_optimization".format(tag))
+    plot_policy_loss(result['loss'], args['buffer_size'], args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
     
     with open(save_result, 'wb') as file:
         pickle.dump(result, file)
