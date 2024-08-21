@@ -7,37 +7,37 @@
 
 | CS coil | TF coil | shield | blanket | 1st wall ) core ) 1st wall ) blanket ) shield ) TF coil
 ================ Geometric info ================
-| Major radius R : 5.870 m
-| Minor radius a : 1.677 m
-| Armour : 0.050 m
-| Blanket : 1.164 m
+| Major radius R : 4.063 m
+| Minor radius a : 1.161 m
+| Armour : 0.010 m
+| Blanket : 1.192 m
 | Shield : 0.100 m
-| TF coil : 1.033 m
-| total thickness : 4.024 m
+| TF coil : 0.978 m
+| total thickness : 3.441 m
 ============== Physical parameters ==============
-| Magnetic field : 13.247 T
+| Magnetic field : 13.441 T
 | Elongation : 1.900
 | Aspect ratio : 3.500
 | Thermal efficiency : 0.400
-| Electric power : 1500.000 MW
-| Thermal power : 3750.464 MW
-| TBR : 1.763
-| beta : 3.723
-| tau : 1.097 s
-| Ip : 12.699 MA
-| q : 2.972
-| li : 429.485
-| f_bs : 0.690
-| Q-parallel : 682.23 MW-T/m
-| T_avg : 15.00 keV
-| n_avg : 1.20x10^20 #/m^3
-| p_avg : 6.92 atm
-| Q : 11.77
+| Electric power : 718.403 MW
+| Thermal power : 1796.269 MW
+| TBR : 3.155
+| beta : 5.947
+| tau : 0.831 s
+| Ip : 9.831 MA
+| q : 2.200
+| li : 0.023
+| f_bs : 0.803
+| Q-parallel : 390.82 MW-T/m
+| T_avg : 10.00 keV
+| n_avg : 1.97x10^20 #/m^3
+| p_avg : 7.57 atm
+| Q : 6.05
 =============== Operation limit ================
-| Greenwald density : 1.437, operation density : 1.202 | O
-| q-kink : 2.000, operation q : 2.972 | O
-| Troyon beta : 4.431, operation beta : 3.723 | O
-| Neoclassical f_bs : 0.985, operation f_bs : 0.690 | O
-| Lawson nTau : 2.084 , operation n*Tau: 1.319 | X
-| Cost params : 0.900
+| Greenwald density : 2.323, operation density : 1.973 | O
+| q-kink : 2.000, operation q : 2.200 | O
+| Troyon beta : 5.988, operation beta : 5.947 | O
+| Neoclassical f_bs : 0.862, operation f_bs : 0.803 | O
+| Lawson nTau : 3.595 , operation n*Tau: 1.639 | X
+| Cost params : 0.887
 ================================================

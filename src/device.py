@@ -888,7 +888,7 @@ class Tokamak:
             "tau" : self.compute_confinement_time(),
             "Ip" : self.compute_Ip(),
             "q" : self.compute_q(),
-            # "li": self.compute_normalized_li(),
+            "li": self.compute_normalized_li(),
             "f_BS" : self.compute_bootstrap_fraction(),
             "Q_parallel" : self.compute_parallel_heat_flux(),
             "n_g" : self.compute_greenwald_density() / 10 ** 20,
@@ -898,6 +898,7 @@ class Tokamak:
             "n_tau" : n_tau,
             "n_tau_lower" : n_tau_lower,
             "cost" : self.compute_cost_params(),
+            "Q": self.compute_Q(),
         }
 
         return result

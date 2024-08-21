@@ -154,7 +154,7 @@ if __name__ == "__main__":
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
     
     # policy and value network
-    policy_network = ActorCritic(input_dim = 19 + 9, mlp_dim = 64, n_actions = 9, std = 0.25)
+    policy_network = ActorCritic(input_dim = 19 + 9 + 2, mlp_dim = 64, n_actions = 9, std = 0.25)
     
     # gpu allocation
     policy_network.to(device)
@@ -212,7 +212,12 @@ if __name__ == "__main__":
         pickle.dump(result, file)
         
     # save optimal design information
-    find_optimal_case(result, {"save_dir":"./results", "tag":"ppo"})
+    if len(args['tag']) > 0:
+        label = "ppo-{}".format(args['tag'])
+    else:
+        label = "ppo"
+    
+    find_optimal_case(result, {"save_dir":"./results", "tag":label})
     
     # exit
     env.close()

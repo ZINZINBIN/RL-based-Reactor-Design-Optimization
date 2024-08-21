@@ -78,7 +78,7 @@ if __name__ == "__main__":
         config = config_benchmark
         
     args_policy = {
-        "input_dim":19 + 9,
+        "input_dim":19 + 9 + 2,
         "mlp_dim":64,
         "n_actions":9,
         'std':0.5
@@ -147,4 +147,9 @@ if __name__ == "__main__":
         pickle.dump(result, file)
         
     # save optimal design information
-    find_optimal_case(result, {"save_dir":"./results", "tag":"ppo-parallel"})
+    if len(args['tag']) > 0:
+        label = "ppo-parallel-{}".format(args['tag'])
+    else:
+        label = "ppo-parallel"
+    
+    find_optimal_case(result, {"save_dir":"./results", "tag":label})

@@ -158,6 +158,7 @@ def plot_policy_loss(
     episode = np.array(range(1, len(loss)+1, 1))
     
     # clip the invalid value
+    loss = np.clip(loss, a_min = -2.0, a_max = 5.0)
     
     # temperal average
     x_mean, loss_mean, loss_lower, loss_upper = temperal_average(episode, loss, temporal_length)
