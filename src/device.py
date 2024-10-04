@@ -664,15 +664,7 @@ class Tokamak:
         return cost
     
     def compute_Q(self):
-        # Method 1: ratio between power
-        # Pf = self.compute_thermal_power()
-        # Pt = self.compute_thermal_loss_power()
-        # Pa = self.compute_alpha_heating_power()
-        # Pl = self.compute_radiation_loss_power()
-        # Ph = Pt - Pa + Pl
-        # Q = Pf / Ph
         
-        # Method 2: from lawson criteria
         T = self.profile.T_avg
         n = self.profile.n_avg
         B = self.B0 * (1 - (self.a + self.blanket_thickness)/self.Rc)
@@ -707,8 +699,8 @@ class Tokamak:
     
         fig, ax = plt.subplots(1,1, figsize = (8,6))
         ax.plot(T, n_tau, "k", label = "Lawson criteria (Ignition)")
-        ax.plot(T, n_tau_5, "r", label = "Lawson criteria (Q=5)")
-        ax.plot(T, n_tau_Q, "b", label = "Lawson criteria (Q={})".format(self.Q))
+        ax.plot(T, n_tau_5, "r", label = "Lawson criteria (Q=5.00)")
+        ax.plot(T, n_tau_Q, "b", label = "Lawson criteria (Q={:.2f})".format(self.Q))
         ax.plot(T, n_tau_break, "g", label = "Lawson criteria (Breakeven)")
         ax.scatter(T_operation, tau_operation * n, c = 'r', label = 'Tokamak design (Q={:.2f})'.format(Q_operation))
         

@@ -39,6 +39,7 @@ def parsing():
     parser.add_argument("--w_q", type = float, default = 1.0)
     parser.add_argument("--w_bs", type = float, default = 1.0)
     parser.add_argument("--w_i", type = float, default = 1.5)
+    parser.add_argument("--w_geo", type = float, default = 1.0)
     parser.add_argument("--cost_r", type = float, default = 1.0)
     parser.add_argument("--tau_r", type = float, default = 1.0)
     parser.add_argument("--a", type = float, default = 1.0)
@@ -92,6 +93,7 @@ if __name__ == "__main__":
         "w_q" : args['w_q'],
         "w_bs" : args['w_bs'],
         "w_i" : args['w_i'],
+        "w_geo":args['w_geo'],
         "cost_r" : args['cost_r'],
         "tau_r" : args['tau_r'],
         "a" : args['a'],

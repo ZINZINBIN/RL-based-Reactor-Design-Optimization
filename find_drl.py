@@ -3,6 +3,7 @@ from src.profile import Profile
 from src.source import CDsource
 from src.env import Enviornment
 from src.rl.ppo import train_ppo, ActorCritic, ReplayBufferPPO
+from src.rl.tppo import train_tppo
 from src.rl.reward import RewardSender
 from src.utility import plot_optimization_status, plot_policy_loss, find_optimal_case
 from config.device_info import config_benchmark, config_liquid
@@ -14,16 +15,19 @@ warnings.filterwarnings(action = 'ignore')
 
 def parsing():
     parser = argparse.ArgumentParser(description="Tokamak design optimization based on single-step RL")
-    
+
     # tag for labeling the optimization process
     parser.add_argument("--tag", type = str, default = "")
-    
+
+    # Select the algorithm
+    parser.add_argument("--algorithm", type = str, default = "PPO", choices = ['PPO','TPPO'])
+
     # Select blanket type: liquid / solid
     parser.add_argument("--blanket_type", type = str, default = "solid", choices = ['liquid','solid'])
-    
+
     # GPU allocation
     parser.add_argument("--gpu_num", type = int, default = 0)
-    
+
     # PPO setup
     parser.add_argument("--buffer_size", type = int, default = 4)
     parser.add_argument("--num_episode", type = int, default = 10000)
@@ -32,7 +36,11 @@ def parsing():
     parser.add_argument("--gamma", type = float, default = 0.999)
     parser.add_argument("--eps_clip", type = float, default = 0.2)
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
-    
+
+    # TPPO setup
+    parser.add_argument("--kl_delta", type = float, default = 0.025)
+    parser.add_argument("--rb_alpha", type=float, default=0.1)
+
     # Reward setup
     parser.add_argument("--w_cost", type = float, default = 0.1)
     parser.add_argument("--w_tau", type = float, default = 0.1)
@@ -41,14 +49,15 @@ def parsing():
     parser.add_argument("--w_q", type = float, default = 1.0)
     parser.add_argument("--w_bs", type = float, default = 1.0)
     parser.add_argument("--w_i", type = float, default = 1.5)
+    parser.add_argument("--w_geo", type = float, default = 1.5)
     parser.add_argument("--cost_r", type = float, default = 1.0)
     parser.add_argument("--tau_r", type = float, default = 1.0)
     parser.add_argument("--a", type = float, default = 1.0)
     parser.add_argument("--reward_fail", type = float, default = -1.0)
-    
+
     # Visualization
     parser.add_argument("--smoothing_temporal_length", type = int, default = 16)
-    
+
     args = vars(parser.parse_args()) 
 
     return args
@@ -59,17 +68,17 @@ print("torch device avaliable : ", torch.cuda.is_available())
 print("torch current device : ", torch.cuda.current_device())
 print("torch device num : ", torch.cuda.device_count())
 print("torch version : ", torch.__version__)
-    
+
 if __name__ == "__main__":
-    
+
     args = parsing()
-    
+
     # device allocation
     if(torch.cuda.device_count() >= 1):
         device = "cuda:{}".format(args['gpu_num'])
     else:
         device = 'cpu'
-    
+
     if args['blanket_type'] == 'liquid':
         config = config_liquid
     else:
@@ -83,12 +92,12 @@ if __name__ == "__main__":
         T_avg = config["T_avg"], 
         p_avg = config['p_avg']
     )
-    
+
     source = CDsource(
         conversion_efficiency = config['conversion_efficiency'],
         absorption_efficiency = config['absorption_efficiency'],
     )
-    
+
     tokamak = Tokamak(
         profile,
         source,
@@ -122,7 +131,7 @@ if __name__ == "__main__":
         RF_recirculating_rate= config['RF_recirculating_rate'],
         flux_ratio = config['flux_ratio']
     )
-    
+
     reward_sender = RewardSender(
         w_cost = args['w_cost'],
         w_tau = args['w_tau'],
@@ -131,12 +140,13 @@ if __name__ == "__main__":
         w_q = args['w_q'],
         w_bs = args['w_bs'],
         w_i = args['w_i'],
+        w_geo = args['w_geo'],
         cost_r = args['cost_r'],
         tau_r = args['tau_r'],
         a = args['a'],
         reward_fail = args['reward_fail']
     )
-    
+
     init_action = {
         'betan':config['betan'],
         'k':config['k'],
@@ -148,76 +158,94 @@ if __name__ == "__main__":
         "armour_thickness" : config['armour_thickness'],
         "RF_recirculating_rate": config['RF_recirculating_rate'],
     }
-    
+
     init_state = tokamak.get_design_performance()
-    
+
     env = Enviornment(tokamak, reward_sender, init_state, init_action)
-    
+
     # policy and value network
     policy_network = ActorCritic(input_dim = 19 + 9 + 2, mlp_dim = 64, n_actions = 9, std = 0.25)
-    
+
     # gpu allocation
     policy_network.to(device)
-    
-    # optimizer    
+
+    # optimizer
     policy_optimizer = torch.optim.RMSprop(policy_network.parameters(), lr = args['lr'])
-    
+
     # loss function for critic network
     value_loss_fn = torch.nn.SmoothL1Loss(reduction = 'none')
-    
+
     # memory
     memory = ReplayBufferPPO(args['buffer_size'])
-    
+
     # directory
     if not os.path.exists("./weights"):
         os.makedirs("./weights")
-    
+
     if not os.path.exists("./results"):
         os.makedirs("./results")
-        
+
     if len(args['tag']) > 0:
-        tag = "PPO_{}_{}".format(args['blanket_type'], args['tag'])
+        tag = "{}_{}_{}".format(args['algorithm'], args['blanket_type'], args['tag'])
     else:
-        tag = "PPO_{}".format(args['blanket_type'])
-        
+        tag = "{}_{}".format(args["algorithm"], args["blanket_type"])
+
     save_best = "./weights/{}_best.pt".format(tag)
     save_last = "./weights/{}_last.pt".format(tag)
     save_result = "./results/params_search_{}.pkl".format(tag)
-    
+
     # Design optimization
     print("============ Design optimization ============")
-    result = train_ppo(
-        env, 
-        memory,
-        policy_network,
-        policy_optimizer,
-        value_loss_fn,
-        args['gamma'],
-        args['eps_clip'],
-        args['entropy_coeff'],
-        device,
-        args['num_episode'],
-        args['verbose'],
-        save_best,
-        save_last,
-    )
-    
+    if args['algorithm'] == 'PPO':
+        result = train_ppo(
+            env, 
+            memory,
+            policy_network,
+            policy_optimizer,
+            value_loss_fn,
+            args['gamma'],
+            args['eps_clip'],
+            args['entropy_coeff'],
+            device,
+            args['num_episode'],
+            args['verbose'],
+            save_best,
+            save_last,
+        )
+    elif args['algorithm'] == 'TPPO':
+        result = train_tppo(
+            env,
+            memory,
+            policy_network,
+            policy_optimizer,
+            value_loss_fn,
+            args["gamma"],
+            args["kl_delta"],
+            args["rb_alpha"],
+            args["entropy_coeff"],
+            device,
+            args["num_episode"],
+            args["verbose"],
+            save_best,
+            save_last,
+        )
+
     print("======== Logging optimization process ========")
     optimization_status = env.optim_status
     plot_optimization_status(optimization_status, args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
-    
+
     plot_policy_loss(result['loss'], args['buffer_size'], args['smoothing_temporal_length'], "./results/{}_optimization".format(tag))
-    
+
     with open(save_result, 'wb') as file:
         pickle.dump(result, file)
-        
+
     # save optimal design information
     if len(args['tag']) > 0:
-        label = "ppo-{}".format(args['tag'])
+        label = "{}-{}".format(args['algorithm'].lower(), args['tag'])
     else:
-        label = "ppo"
-    
+        label = "{}".format(args['algorithm'].lower())
+
     find_optimal_case(result, {"save_dir":"./results", "tag":label})
-    
+
     # exit
     env.close()

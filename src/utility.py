@@ -77,7 +77,7 @@ def find_optimal_case(result:Dict, args:Dict):
         profile,
         source,
         betan = config['betan'],
-        Q = config['Q'],
+        Q = 10,
         k = config['k'],
         epsilon = config['epsilon'],  
         tri = config['tri'],

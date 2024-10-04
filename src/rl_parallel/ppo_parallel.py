@@ -91,6 +91,7 @@ def create_environment(
         w_q = args_reward['w_q'],
         w_bs = args_reward['w_bs'],
         w_i = args_reward['w_i'],
+        w_geo = args_reward['w_geo'],
         cost_r = args_reward['cost_r'],
         tau_r = args_reward['tau_r'],
         a = args_reward['a']

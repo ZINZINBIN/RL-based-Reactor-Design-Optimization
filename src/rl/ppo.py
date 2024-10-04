@@ -6,7 +6,7 @@ from itertools import count
 from tqdm.auto import tqdm
 from typing import Optional, Dict
 from src.env import Enviornment
-from config.search_space_info import search_space
+from config.search_space_info import search_space, state_space
 from torch.distributions import Normal
 import os, pickle
 from collections import namedtuple, deque
@@ -18,6 +18,7 @@ Transition = namedtuple(
 )
 
 default_action_range = search_space
+default_state_range = state_space
 
 class ReplayBufferPPO(object):
     def __init__(self, capacity : int):
@@ -57,7 +58,7 @@ class ReplayBufferPPO(object):
             self.memory = pickle.load(f)
 
 class ActorCritic(nn.Module):
-    def __init__(self, input_dim : int, mlp_dim : int, n_actions : int, action_range : Dict = default_action_range, std : float = 0.0):
+    def __init__(self, input_dim : int, mlp_dim : int, n_actions : int, action_range : Dict = default_action_range, std : float = 0.0, state_range : Dict = default_state_range):
         super(ActorCritic, self).__init__()
         
         self.fc1 = nn.Linear(input_dim, mlp_dim)
@@ -73,19 +74,27 @@ class ActorCritic(nn.Module):
         self.fc_v = nn.Linear(mlp_dim // 2, 1)
         
         self.action_range = action_range
+        self.state_range = state_range
         self.min_values = [action_range[key][0] for key in action_range.keys()]
         self.max_values = [action_range[key][1] for key in action_range.keys()]
+        
+        self.input_min_values = [state_range[key][0] for key in state_range.keys()] + [action_range[key][0] for key in action_range.keys()]
+        self.input_max_values = [state_range[key][1] for key in state_range.keys()] + [action_range[key][1] for key in action_range.keys()]
         
         self.log_std = nn.Parameter(torch.ones(1, n_actions) * std)
         
     def forward(self, x : torch.Tensor):
-
+        
+        # normalization
+        x = (x - torch.Tensor(self.input_min_values).to(x.device)) / (torch.Tensor(self.input_max_values).to(x.device) - torch.Tensor(self.input_min_values).to(x.device))
+        x -= 0.5
+        x *= 2
+        
         x = F.tanh(self.fc1(self.norm1(x)))
         x = F.tanh(self.fc2(self.norm2(x)))
         x = F.tanh(self.fc3(self.norm3(x)))
         
         mu = self.fc_pi(x)
-        mu = torch.clamp(mu, min = torch.Tensor(self.min_values).to(x.device), max = torch.Tensor(self.max_values).to(x.device))
         std = self.log_std.exp().expand_as(mu)
     
         dist = Normal(mu, std)
@@ -96,8 +105,14 @@ class ActorCritic(nn.Module):
     def sample(self, x : torch.Tensor):
         dist, value = self.forward(x)
         xs = dist.rsample()
-        action = torch.clamp(xs, min = torch.Tensor(self.min_values).to(x.device), max = torch.Tensor(self.max_values).to(x.device))
-        log_probs = dist.log_prob(action)
+        
+        # rescale action range
+        action = (0.5 + 0.5 * xs) * (torch.Tensor(self.max_values).to(x.device) - torch.Tensor(self.min_values).to(x.device)) + torch.Tensor(self.min_values).to(x.device)
+        
+        # action bounded for stable learning + valid design parameter
+        action = torch.clamp(action, min = torch.Tensor(self.min_values).to(x.device), max = torch.Tensor(self.max_values).to(x.device))
+        
+        log_probs = dist.log_prob(xs)
         entropy = dist.entropy().mean()
         
         return action, entropy, log_probs, value

@@ -13,6 +13,7 @@ class RewardSender:
         w_q : float, 
         w_bs : float,
         w_i : float,
+        w_geo : float,
         cost_r : float = 1.0,
         tau_r : float = 1.0,
         a : float = 3.0,
@@ -25,6 +26,7 @@ class RewardSender:
         self.w_q = w_q
         self.w_bs = w_bs
         self.w_i = w_i
+        self.w_geo = w_geo
         
         self.tau_r = tau_r
         self.cost_r = cost_r
@@ -35,9 +37,13 @@ class RewardSender:
         self.a = a
         
         # Plasma parameters should be included physically valid range 
-        self.valid_beta = [2.0, 5.0]
+        self.valid_beta = [2.0,5.0]
         self.valid_q = [1.0,5.0]
         self.valid_n = [1.0,5.0]
+        
+        # Geometric range for achievable structure
+        self.valid_coil_thickness = [0.5, 1.2]
+        self.valid_blanket_thickness = [0.8, 1.5]
         
         # Reference for computing reward (Friedberg design version)
         self.reference_tau = 0.944
@@ -45,6 +51,31 @@ class RewardSender:
         
     def _compute_tanh(self, x):
         return math.tanh(x)
+    
+    def _compute_geometric_reward(self, state:Dict, minimum_inner_radius:float = 0.1):
+        
+        coil_thickness = state['coil_thickness']
+        blanket_thickness = state['blanket_thickness']
+        armour_thickness = 0.05 # maximum
+        R = state['R']
+        a = state['a']
+        shield_thickness = 0.1
+        
+        reward = 0
+        reward += self.reward_fail * (
+             np.heaviside(coil_thickness - self.valid_coil_thickness[1], 0) 
+             + np.heaviside(self.valid_coil_thickness[0] - coil_thickness, 0)
+        )
+        
+        reward += self.reward_fail * (
+             np.heaviside(blanket_thickness - self.valid_blanket_thickness[1], 0) 
+             + np.heaviside(self.valid_blanket_thickness[0] - blanket_thickness, 0)
+        )
+        
+        reward += self.reward_fail * np.heaviside(coil_thickness + blanket_thickness + armour_thickness + a + shield_thickness - R + minimum_inner_radius,0)
+        reward /= 3
+        
+        return reward
     
     def _compute_operational_limit_reward(self, x, x_limit, a : float = 3.0):
         x_ratio = x / x_limit
@@ -103,8 +134,11 @@ class RewardSender:
         # ignition condition
         reward_i = self._compute_operational_limit_reward(n_tau, n_tau_lower, self.a)
         
-        reward = reward_tau * self.w_tau + reward_cost * self.w_cost + reward_beta * self.w_beta + reward_q * self.w_q + reward_n * self.w_density + reward_f * self.w_bs + reward_i * self.w_i
-        reward /= (self.w_tau + self.w_cost + self.w_beta + self.w_q + self.w_density + self.w_bs + self.w_i)
+        # geometric condition
+        reward_g = self._compute_geometric_reward(state, 0.1)
+        
+        reward = reward_tau * self.w_tau + reward_cost * self.w_cost + reward_beta * self.w_beta + reward_q * self.w_q + reward_n * self.w_density + reward_f * self.w_bs + reward_i * self.w_i + reward_g * self.w_geo
+        reward /= (self.w_tau + self.w_cost + self.w_beta + self.w_q + self.w_density + self.w_bs + self.w_i + self.w_geo)
         
         return reward
     
@@ -155,8 +189,11 @@ class RewardSender:
         # ignition condition
         reward_i = self._compute_operational_limit_reward(n_tau, n_tau_lower, self.a)
         
-        reward = reward_tau * self.w_tau + reward_cost * self.w_cost + reward_beta * self.w_beta + reward_q * self.w_q + reward_n * self.w_density + reward_f * self.w_bs + reward_i * self.w_i
-        reward /= (self.w_tau + self.w_cost + self.w_beta + self.w_q + self.w_density + self.w_bs + self.w_i)
+        # geometric condition
+        reward_g = self._compute_geometric_reward(state, 0.1)
+        
+        reward = reward_tau * self.w_tau + reward_cost * self.w_cost + reward_beta * self.w_beta + reward_q * self.w_q + reward_n * self.w_density + reward_f * self.w_bs + reward_i * self.w_i + reward_g * self.w_geo
+        reward /= (self.w_tau + self.w_cost + self.w_beta + self.w_q + self.w_density + self.w_bs + self.w_i + self.w_geo)
         
         reward_dict = {
             "total":reward,
@@ -166,6 +203,7 @@ class RewardSender:
             "q":reward_q,
             "density":reward_n,
             "fbs":reward_f,
+            "geo":reward_g
         }
         
         return reward_dict

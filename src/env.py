@@ -50,7 +50,18 @@ class Enviornment(gym.Env):
             state = self.tokamak.get_design_performance()
             reward = self.reward_sender(state)
             optim_status = self.reward_sender._compute_reward_dict(state)
-            
+
+            # if state['coil_thickness'] > 1.2:
+            #     state = None
+            #     reward = None
+            #     optim_status = None
+                
+            # physically reasonable design: the total thickness should be less than major radius
+            # if state['coil_thickness'] + state['blanket_thickness'] + action['armour_thickness'] + state['a'] + 0.1 > state['R'] - 0.05:
+            #     state = None
+            #     reward = None
+            #     optim_status = None
+                
         except:
             state = None
             reward = None
