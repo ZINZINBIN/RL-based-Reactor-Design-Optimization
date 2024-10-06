@@ -26,7 +26,7 @@
 | tau : 0.713 s
 | Ip : 7.463 MA
 | q : 2.227
-| li : 0.026
+| li : 0.032
 | f_bs : 0.770
 | Q-parallel : 386.12 MW-T/m
 | T_avg : 10.00 keV

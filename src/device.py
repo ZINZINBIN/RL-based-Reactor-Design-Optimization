@@ -583,7 +583,7 @@ class Tokamak:
         n_max = int(rho // drho)
         
         rho_list = [drho * i for i in range(0, n_max)]
-        integral = sum([self.compute_toroidal_current(rho_) * 2 * math.pi * rho_ * drho for rho_ in rho_list])
+        integral = sum([self.compute_toroidal_current(rho_ / a) * 2 * math.pi * rho_ * drho for rho_ in rho_list])
         Bp_rho = integral * mu / 2 / math.pi / rho
         
         return Bp_rho

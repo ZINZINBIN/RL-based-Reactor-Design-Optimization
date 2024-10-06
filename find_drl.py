@@ -38,8 +38,8 @@ def parsing():
     parser.add_argument("--entropy_coeff", type = float, default = 0.05)
 
     # TPPO setup
-    parser.add_argument("--kl_delta", type = float, default = 0.025)
-    parser.add_argument("--rb_alpha", type=float, default=0.1)
+    parser.add_argument("--kl_delta", type = float, default = 0.02)
+    parser.add_argument("--rb_alpha", type=float, default=0.05)
 
     # Reward setup
     parser.add_argument("--w_cost", type = float, default = 0.1)

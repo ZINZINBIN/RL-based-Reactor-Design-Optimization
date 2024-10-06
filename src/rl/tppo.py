@@ -71,7 +71,7 @@ def update_policy(
     
     # TP-RB loss 
     surr = ratio * delta
-    kl = kl_divergence(Normal(log_probs.exp().mean(), log_probs.exp().std()), Normal(prob_a_batch.exp().mean(), prob_a_batch.exp().std()))
+    kl = kl_divergence(Normal(log_probs.exp().mean(), log_probs.exp().std()), Normal(prob_a_batch.detach().exp().mean(), prob_a_batch.detach().exp().std()))
     
     tr_rb_loss = torch.min(
         torch.where(
@@ -81,12 +81,6 @@ def update_policy(
         ) * delta,
         surr
     )
-    
-    # tr_rb_loss = torch.where(
-    #     (kl >= kl_delta) & (ratio > 1),
-    #     surr - entropy,
-    #     surr
-    # )
     
     loss = (
         (-1) * tr_rb_loss + criterion(value, td_target) - entropy_coeff * entropy
