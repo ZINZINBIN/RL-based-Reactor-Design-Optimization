@@ -1,5 +1,7 @@
 import warnings
 import numpy as np
+from typing import Literal
+from sklearn.gaussian_process import GaussianProcessRegressor
 
 def acq_max(ac, gp, all_discr_actions, context):
     """
@@ -20,7 +22,7 @@ class UtilityFunction(object):
     An object to compute the acquisition functions.
     """
 
-    def __init__(self, kind, beta_kind="const", beta_const=1):
+    def __init__(self, kind:Literal["ucb"] = "ucb", beta_kind:Literal["const", "theor"]="const", beta_const:float=1):
 
         self.beta_const = beta_const
         self.beta_val = 1
@@ -48,9 +50,7 @@ class UtilityFunction(object):
         if self.beta_kind == "const":
             self.beta_val = self.beta_const
         elif self.beta_kind == "theor":
-            self.beta_val = 2 + 300 * self.t ** (33 / 34) * np.log10(self.t) * (
-                np.log(self.t / self.delta) ** 3
-            )
+            self.beta_val = 2 + 300 * self.t ** (33 / 34) * np.log10(self.t) * (np.log(self.t / self.delta) ** 3)
 
     def utility(self, x, gp):
         self.update_params()
@@ -58,7 +58,7 @@ class UtilityFunction(object):
             return self._ucb(x, gp, self.beta_val)
 
     @staticmethod
-    def _ucb(x, gp, beta):
+    def _ucb(x, gp: GaussianProcessRegressor, beta):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             mean, std = gp.predict(x, return_std=True)

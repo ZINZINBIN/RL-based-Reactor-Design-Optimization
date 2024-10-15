@@ -1,16 +1,28 @@
 import numpy as np
 from itertools import product
+from config.search_space_info import search_space
+
 
 class ActionSpace(object):
 
-    def __init__(self, discvars, contexts):
+    def __init__(self, discvars, contexts, n_grid: int = 5):
 
         # Get the name of the parameters
         self._action_keys = discvars.keys()
         self._context_keys = contexts.keys()
 
-        allList = [discvars[k] for k in discvars.keys()]
+        # action space for random sampling
+        allActions = {}
+
+        for param in self._action_keys:
+            p_min = search_space[param][0]
+            p_max = search_space[param][1]
+            ps = np.linspace(p_min, p_max, n_grid)
+            allActions[param] = ps
+
+        allList = [allActions[k] for k in self._action_keys]
         allActions = np.array(list(product(*allList)))
+        
         self._allActions = allActions
 
         # preallocated memory for X and Y points
@@ -60,9 +72,11 @@ class ActionSpace(object):
     def action_keys(self):
         return self._action_keys
 
+    """
     @property
     def bounds(self):
         return self._bounds
+    """
 
     def action_to_array(self, action):
         try:
@@ -115,10 +129,6 @@ class ActionSpace(object):
         self._reward = np.concatenate([self._reward, [reward]])
         self._context_action = np.concatenate([self._context_action, ca.reshape(1, -1)])
 
-    def random_sample(self):
-        rand_idx = np.random.randint(len(self._allActions))
-        return self._allActions[rand_idx, :]
-
     def res(self):
         """Get all reward values found and corresponding parametes."""
         context = [dict(zip(self._context_keys, p)) for p in self.context]
@@ -128,3 +138,7 @@ class ActionSpace(object):
             {"reward": r, "action": a, "context": c}
             for r, a, c in zip(self.reward, action, context)
         ]
+
+    def random_sample(self):
+        rand_idx = np.random.randint(len(self._allActions))
+        return self._allActions[rand_idx, :]

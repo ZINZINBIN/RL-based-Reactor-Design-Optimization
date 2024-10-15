@@ -2,12 +2,11 @@ import warnings
 import os, pickle, random
 import numpy as np
 from collections import namedtuple, deque
-from typing import List, Literal
+from typing import List, Literal, Dict
 from tqdm.auto import tqdm
 
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern, WhiteKernel
-from config.search_space_info import search_space, state_space
+from sklearn.gaussian_process.kernels import Kernel
 from src.bayesian.func import acq_max, UtilityFunction
 from src.bayesian.action_space import ActionSpace
 from src.env import Enviornment
@@ -17,40 +16,28 @@ Transition = namedtuple(
     "Transition", ("state", "action", "next_state", "reward", "done", "prob_a")
 )
 
-default_action_range = search_space
-default_state_range = state_space
-
 class ContextualBayesianOptimization:
-    def __init__(self, all_actions_dict, contexts, kernel, noise:float=1e-6, points:List=[], rewards:List=[], init_random=3):
+    def __init__(self, all_actions_dict:Dict, contexts:Dict, kernel:Kernel, noise:float=1e-6, points:List=[], rewards:List=[], init_random:int=3, n_restarts_optimizer : int = 5):
 
         self._space = ActionSpace(all_actions_dict, contexts)
         self.init_random = init_random
 
         if len(points) > 0:
-            gp_hyp = GaussianProcessRegressor(
-                kernel=kernel, alpha=noise, normalize_y=True, n_restarts_optimizer=5
-            )
+            gp_hyp = GaussianProcessRegressor(kernel=kernel, alpha=noise, normalize_y=True, n_restarts_optimizer=n_restarts_optimizer)
 
-            print("Optimizing kernel hyperparameters....")
-            
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 gp_hyp.fit(points, rewards)
                 
-            print("Done!")
-
             opt_hyp = gp_hyp.kernel_.get_params()
             kernel.set_params(**opt_hyp)
             optimizer = None
+            
         else:
-            warnings.warn(
-                "Kernel hyperparameters will be computed during the optimization."
-            )
+            warnings.warn("Kernel hyperparameters will be computed during the optimization.")
             optimizer = "fmin_l_bfgs_b"
 
-        self._gp = GaussianProcessRegressor(
-            kernel=kernel, alpha=noise, normalize_y=True, optimizer=optimizer
-        )
+        self._gp = GaussianProcessRegressor(kernel=kernel, alpha=noise, normalize_y=True, optimizer=optimizer)
 
     @property
     def space(self):
@@ -73,10 +60,12 @@ class ContextualBayesianOptimization:
     def context_to_array(self, context):
         return self._space.context_to_array(context)
 
-    def suggest(self, context, utility_function):
+    def suggest(self, context, utility_function:UtilityFunction):
+        
         """Most promissing point to probe next"""
         assert len(context) == self._space.context_dim
         context = self._space.context_to_array(context)
+        
         if len(self._space) < self.init_random:
             return self._space.array_to_action(self._space.random_sample())
 
@@ -91,31 +80,16 @@ class ContextualBayesianOptimization:
             all_discr_actions=self._space._allActions,
             context=context,
         )
-
         return self._space.array_to_action(suggestion)
 
 
 def search_param_space(
-    env: Enviornment, 
-    num_episode: int = 10000, 
+    env: Enviornment,
+    optimizer: ContextualBayesianOptimization,
+    utility: UtilityFunction,
+    num_episode: int = 10000,
     verbose: int = 1000,
-    noise : float = 1e-6,
-    nu:float = 1.5,
-    noise_level:int = 1,
-    beta_function:Literal['cost']='const',
-    beta_const_val:float=2.5,
-    init_random : int = 3
-    ):
-
-    # define kernel
-    kernel = WhiteKernel(noise_level=noise_level) + Matern(nu=nu, length_scale=np.ones(context_dim+action_dim))
-    
-    # define offline bayesian optimizer
-    optimizer = ContextualBayesianOptimization(all_actions_dict, contexts, kernel, noise = noise, points =[], rewards =[], init_random=init_random)
-
-    utility = UtilityFunction(
-        kind="ucb", beta_kind=beta_function, beta_const=beta_const_val
-    )
+):
 
     for i_episode in tqdm(range(num_episode), desc = 'Contextual bayesian optimization algorithm for design optimization'):
 
@@ -126,7 +100,7 @@ def search_param_space(
             state = env.current_state
             ctrl = env.current_action
 
-        context = np.array([state[key] for key in state.keys()] + [ctrl[key] for key in ctrl.keys()])
+        context = np.array([state[key] for key in state.keys()])
         context = optimizer.array_to_context(context)
 
         ctrl_new = optimizer.suggest(context, utility)

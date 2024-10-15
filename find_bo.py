@@ -3,11 +3,14 @@ from src.profile import Profile
 from src.source import CDsource
 from src.env import Enviornment
 from src.bayesian.optimization import search_param_space, ContextualBayesianOptimization
+from sklearn.gaussian_process.kernels import Matern, WhiteKernel
+from src.bayesian.func import acq_max, UtilityFunction
+
 from src.rl.reward import RewardSender
 from src.utility import plot_optimization_status, find_optimal_case
 from config.device_info import config_benchmark, config_liquid
-import pickle
-import argparse, os, warnings
+import pickle, argparse, os, warnings
+import numpy as np
 
 warnings.filterwarnings(action = 'ignore')
 
@@ -26,8 +29,10 @@ def parsing():
     parser.add_argument("--beta_function", type = str, default = "const", choices = ["const"])
     parser.add_argument("--beta_const_val", type = float, default = 2.5)
     parser.add_argument("--nu", type = float, default = 1.5)
+    parser.add_argument("--noise", type=float, default=1e-4)
     parser.add_argument("--noise_level", type = int, default = 1)
     parser.add_argument("--init_random", type=int, default=3)
+    parser.add_argument("--n_restarts_optimizer", type = int, default = 5)
 
     # Reward setup
     parser.add_argument("--w_cost", type = float, default = 0.1)
@@ -145,18 +150,40 @@ if __name__ == "__main__":
     tag = "bayesian_{}".format(args["blanket_type"])
     save_result = "./results/params_search_{}.pkl".format(tag)
 
+    # define kernel
+    context_dim = 19 + 2
+    action_dim = 9
+    
+    kernel = WhiteKernel(noise_level=args["noise_level"]) + Matern(nu=args["nu"], length_scale=np.ones(context_dim + action_dim))
+    
+    # initial contexts and actions for bayesian optimization
+    contexts = init_state.copy()
+    all_actions_dict = init_action.copy()
+
+    # define offline bayesian optimizer
+    optimizer = ContextualBayesianOptimization(
+        all_actions_dict,
+        contexts,
+        kernel,
+        noise=args["noise"],
+        points=[],
+        rewards=[],
+        init_random=args["init_random"],
+        n_restarts_optimizer=args['n_restarts_optimizer']
+    )
+
+    utility = UtilityFunction(
+        kind="ucb", beta_kind=args["beta_function"], beta_const=args["beta_const_val"]
+    )
+
     # Design optimization
     print("============ Design optimization ============")
     result = search_param_space(
         env,
+        optimizer,
+        utility,
         num_episode=args["num_episode"],
         verbose=args["verbose"],
-        noise=args["noise"],
-        nu=args["nu"],
-        noise_level=args["noise_level"],
-        beta_function=args["beta_function"],
-        beta_const_val=args["beta_const_val"],
-        init_random = args['init_random']
     )
 
     print("======== Logging optimization process ========")
