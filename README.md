@@ -43,11 +43,17 @@ The framework for optimizing the design configuration of a tokamak is based on p
         python3 find_gridsearch.py --blanket_type {'solid' or 'liquid'} --num_episode {# of episodes} --n_grid {# of grids}
     ```
 
-2. Deep Reinforcement Learning
+2. Bayesian optimization
+    ```
+        python3 find_bo.py --blanket_type {'solid' or 'liquid'} --num_episode {# of episodes} --init_random {# for random sampling}
+    ```
+
+3. Deep Reinforcement Learning
 - Single CPU version
     ```
         python3 find_drl.py --blanket_type {'solid' or 'liquid'} --num_episode {# of episodes} --buffer_size {buffer size} --lr {learning rate}
     ```
+
 - Multiple CPU version (Parallelization)
     ```
         python3 find_drl_parallel.py --blanket_type {'solid' or 'liquid'} --num_episode {# of episodes} --buffer_size {buffer size} --lr {learning rate} --n_workers {number of workers}
