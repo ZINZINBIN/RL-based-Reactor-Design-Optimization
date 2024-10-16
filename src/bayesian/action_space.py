@@ -1,28 +1,30 @@
 import numpy as np
 from itertools import product
 from config.search_space_info import search_space
-
+from typing import Optional
 
 class ActionSpace(object):
-
-    def __init__(self, discvars, contexts, n_grid: int = 5):
+    def __init__(self, discvars, contexts, n_random:int = 128):
 
         # Get the name of the parameters
         self._action_keys = discvars.keys()
         self._context_keys = contexts.keys()
 
         # action space for random sampling
+        self.random_state = np.random.RandomState()
         allActions = {}
 
-        for param in self._action_keys:
+        self.n_random = n_random
+        self.bounds = np.zeros((len(self._action_keys), 2))
+
+        for idx, param in enumerate(self._action_keys):
             p_min = search_space[param][0]
             p_max = search_space[param][1]
-            ps = np.linspace(p_min, p_max, n_grid)
-            allActions[param] = ps
+            allActions[param] = [p_min, p_max]
 
-        allList = [allActions[k] for k in self._action_keys]
-        allActions = np.array(list(product(*allList)))
-        
+            self.bounds[idx,0] = p_min
+            self.bounds[idx,1] = p_max
+
         self._allActions = allActions
 
         # preallocated memory for X and Y points
@@ -71,12 +73,6 @@ class ActionSpace(object):
     @property
     def action_keys(self):
         return self._action_keys
-
-    """
-    @property
-    def bounds(self):
-        return self._bounds
-    """
 
     def action_to_array(self, action):
         try:
@@ -138,7 +134,10 @@ class ActionSpace(object):
             {"reward": r, "action": a, "context": c}
             for r, a, c in zip(self.reward, action, context)
         ]
-
-    def random_sample(self):
-        rand_idx = np.random.randint(len(self._allActions))
-        return self._allActions[rand_idx, :]
+    
+    def random_sample(self, n_sample:Optional[int] = None):
+                
+        if n_sample == None:
+            n_sample = self.n_random
+        
+        return self.random_state.uniform(self.bounds[:,0], self.bounds[:,1], size = (n_sample, self.bounds.shape[0]))

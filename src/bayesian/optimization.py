@@ -67,7 +67,7 @@ class ContextualBayesianOptimization:
         context = self._space.context_to_array(context)
         
         if len(self._space) < self.init_random:
-            return self._space.array_to_action(self._space.random_sample())
+            return self._space.array_to_action(self._space.random_sample(1).reshape(-1,))
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -77,9 +77,10 @@ class ContextualBayesianOptimization:
         suggestion = acq_max(
             ac=utility_function.utility,
             gp=self._gp,
-            all_discr_actions=self._space._allActions,
+            all_discr_actions=self._space.random_sample(),
             context=context,
         )
+        
         return self._space.array_to_action(suggestion)
 
 

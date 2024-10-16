@@ -3,19 +3,17 @@ import numpy as np
 from typing import Literal
 from sklearn.gaussian_process import GaussianProcessRegressor
 
-def acq_max(ac, gp, all_discr_actions, context):
+# Bottleneck from here
+def acq_max(ac, gp:GaussianProcessRegressor, all_discr_actions, context):
     """
     A function to find the maximum of the acquisition function
     We evaluate all possible actions since we consider a discrete set of actions.
     """
-    context_action = np.concatenate(
-        [np.tile(context, (len(all_discr_actions), 1)), all_discr_actions], axis=1
-    )
+    context_action = np.concatenate([np.tile(context, (len(all_discr_actions), 1)), all_discr_actions], axis=1)
 
     ys = ac(context_action, gp=gp)
     x_max = all_discr_actions[ys.argmax()]
     return x_max
-
 
 class UtilityFunction(object):
     """
