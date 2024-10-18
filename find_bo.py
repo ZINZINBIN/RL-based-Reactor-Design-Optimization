@@ -33,6 +33,8 @@ def parsing():
     parser.add_argument("--noise_level", type = int, default = 1)
     parser.add_argument("--init_random", type=int, default=3)
     parser.add_argument("--n_restarts_optimizer", type = int, default = 5)
+    parser.add_argument("--n_random", type = int, default=128)
+    parser.add_argument("--buffer_size", type=int, default=128)
 
     # Reward setup
     parser.add_argument("--w_cost", type = float, default = 0.1)
@@ -169,7 +171,9 @@ if __name__ == "__main__":
         points=[],
         rewards=[],
         init_random=args["init_random"],
-        n_restarts_optimizer=args['n_restarts_optimizer']
+        n_restarts_optimizer=args['n_restarts_optimizer'],
+        n_random=args['n_random'],
+        buffer_size=args['buffer_size'],
     )
 
     utility = UtilityFunction(

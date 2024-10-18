@@ -2,6 +2,7 @@ from src.device import Tokamak
 from src.profile import Profile
 from src.source import CDsource
 from config.device_info import config_benchmark, config_by_rl, config_liquid
+from src.utility import pickle2dict
 import argparse
 import os
 
@@ -15,20 +16,24 @@ def parsing():
     return args
 
 if __name__ == "__main__":
-    
+
     args = parsing()
-    
-    if args['use_benchmark']:
-        args['tag'] = 'reference'
-        config = config_benchmark
-        
-    elif args['use_rl']:
-        config = config_by_rl 
-        args['tag'] = 'ppo'
+
+    if os.path.exists(os.path.join("./config", "{}.pkl".format(args['tag']))):
+        config = pickle2dict("./config", "{}.pkl".format(args["tag"]))
         
     else:
-        config = config_liquid
-    
+        if args['use_benchmark']:
+            args['tag'] = 'reference'
+            config = config_benchmark
+            
+        elif args['use_rl']:
+            config = config_by_rl 
+            args['tag'] = 'ppo'
+            
+        else:
+            config = config_liquid
+
     profile = Profile(
         nu_T = config["nu_T"],
         nu_p = config["nu_p"],
@@ -37,12 +42,12 @@ if __name__ == "__main__":
         T_avg = config["T_avg"], 
         p_avg = config['p_avg']
     )
-    
+
     source = CDsource(
         conversion_efficiency = config['conversion_efficiency'],
         absorption_efficiency = config['absorption_efficiency'],
     )
-    
+
     tokamak = Tokamak(
         profile,
         source,
@@ -76,7 +81,7 @@ if __name__ == "__main__":
         RF_recirculating_rate= config['RF_recirculating_rate'],
         flux_ratio = config['flux_ratio']
     )
-    
+
     # save file
     tokamak.print_info(os.path.join(args['save_dir'], "{}_stat.txt".format(args['tag'])))
     tokamak.print_profile(os.path.join(args['save_dir'], "{}_profile.png".format(args['tag'])))

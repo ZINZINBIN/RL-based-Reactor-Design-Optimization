@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import os
+import os, pickle
 
 import matplotlib.pyplot as plt
 from typing import List, Optional, Literal, Dict, Union
@@ -118,6 +118,7 @@ def find_optimal_case(result:Dict, args:Dict):
     del source
     del profile
     
+    dict2pickle(config, "./config", "{}.pkl".format(args['tag']))
 
 def temperal_average(X:np.array, Y:np.array, k:int):
     
@@ -178,7 +179,7 @@ def plot_policy_loss(
     plt.savefig(os.path.join(save_dir, "policy_loss.png"), facecolor = fig.get_facecolor(), edgecolor = 'none', transparent = False)
     
     fig.clear()
-    
+
 
 # print the result of overall optimization process
 def plot_optimization_status(
@@ -225,3 +226,32 @@ def plot_optimization_status(
         plt.savefig(os.path.join(save_dir, "reward_history_{}.png".format(key)), facecolor = fig.get_facecolor(), edgecolor = 'none', transparent = False)
         
         fig.clear()
+
+
+def dict2pickle(result:Dict, path:str, filename:str):
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    filepath = os.path.join(path, filename)
+
+    with open(filepath, 'wb') as file:
+        pickle.dump(result, file)
+
+    print("Save pickle file...")
+
+
+def pickle2dict(path:str, filename:str):
+    
+    filepath = os.path.join(path, filename)
+    
+    if not os.path.exists(filepath):
+        print("Error | {} configuration file doesn't exist".format(filepath))
+        return None
+    
+    with open(filepath, 'rb') as file:
+        result = pickle.load(file)
+        
+    print("Load config file...")
+        
+    return result

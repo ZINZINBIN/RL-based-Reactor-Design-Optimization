@@ -17,9 +17,22 @@ Transition = namedtuple(
 )
 
 class ContextualBayesianOptimization:
-    def __init__(self, all_actions_dict:Dict, contexts:Dict, kernel:Kernel, noise:float=1e-6, points:List=[], rewards:List=[], init_random:int=3, n_restarts_optimizer : int = 5):
 
-        self._space = ActionSpace(all_actions_dict, contexts)
+    def __init__(
+        self,
+        all_actions_dict: Dict,
+        contexts: Dict,
+        kernel: Kernel,
+        noise: float = 1e-6,
+        points: List = [],
+        rewards: List = [],
+        init_random: int = 3,
+        n_restarts_optimizer: int = 5,
+        n_random: int = 128,
+        buffer_size: int = 256,
+    ):
+
+        self._space = ActionSpace(all_actions_dict, contexts, n_random, buffer_size)
         self.init_random = init_random
 
         if len(points) > 0:
@@ -28,11 +41,11 @@ class ContextualBayesianOptimization:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 gp_hyp.fit(points, rewards)
-                
+
             opt_hyp = gp_hyp.kernel_.get_params()
             kernel.set_params(**opt_hyp)
             optimizer = None
-            
+
         else:
             warnings.warn("Kernel hyperparameters will be computed during the optimization.")
             optimizer = "fmin_l_bfgs_b"
@@ -61,17 +74,17 @@ class ContextualBayesianOptimization:
         return self._space.context_to_array(context)
 
     def suggest(self, context, utility_function:UtilityFunction):
-        
+
         """Most promissing point to probe next"""
         assert len(context) == self._space.context_dim
         context = self._space.context_to_array(context)
-        
+
         if len(self._space) < self.init_random:
             return self._space.array_to_action(self._space.random_sample(1).reshape(-1,))
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            self._gp.fit(self._space.context_action, self._space.reward)
+            self._gp.fit(self._space.context_action, self._space.reward) # bottlenack -> online learning algorithm?
 
         # Finding argmax of the acquisition function.
         suggestion = acq_max(
@@ -80,7 +93,7 @@ class ContextualBayesianOptimization:
             all_discr_actions=self._space.random_sample(),
             context=context,
         )
-        
+
         return self._space.array_to_action(suggestion)
 
 

@@ -4,7 +4,7 @@ from config.search_space_info import search_space
 from typing import Optional
 
 class ActionSpace(object):
-    def __init__(self, discvars, contexts, n_random:int = 128):
+    def __init__(self, discvars, contexts, n_random:int = 128, buffer_size:int=256):
 
         # Get the name of the parameters
         self._action_keys = discvars.keys()
@@ -25,7 +25,8 @@ class ActionSpace(object):
             self.bounds[idx,0] = p_min
             self.bounds[idx,1] = p_max
 
-        self._allActions = allActions
+        self._allActions = allActions        
+        self.buffer_size = buffer_size
 
         # preallocated memory for X and Y points
         self._context = np.empty(shape=(0, self.context_dim))
@@ -124,6 +125,12 @@ class ActionSpace(object):
         self._action = np.concatenate([self._action, a.reshape(1, -1)])
         self._reward = np.concatenate([self._reward, [reward]])
         self._context_action = np.concatenate([self._context_action, ca.reshape(1, -1)])
+        
+        if len(self._context) > self.buffer_size:
+            self._context = self._context[-self.buffer_size:]
+            self._action = self._action[-self.buffer_size:]
+            self._reward = self._reward[-self.buffer_size:]
+            self._context_action = self._context_action[-self.buffer_size:]
 
     def res(self):
         """Get all reward values found and corresponding parametes."""
