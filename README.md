@@ -99,12 +99,15 @@ Jinsu Kim (2024). **Fusion-Reactor-Design-Optimization**. GitHub.
 
 #### 📚 BibTeX:
 ```bibtex
-@misc{yourgithubrepo,
-  author = {Jinsu Kim},
-  title = {Fusion-Reactor-Design-Optimization},
-  year = {2024},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization}}
+@software{Kim_RL_based_Fusion_2024,
+author = {Kim, Jinsu},
+doi = {https://doi.org/10.48550/arXiv.2409.08231},
+license = {MIT},
+month = sep,
+title = {{Deep Reinforcement Learning based Fusion Reactor Design Optimization Code}},
+url = {https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization},
+howpublished = {\url{https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization}},
+version = {1.0.0},
+year = {2024}
 }
 ```
