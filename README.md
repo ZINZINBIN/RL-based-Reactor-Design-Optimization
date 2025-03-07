@@ -86,26 +86,25 @@ The figures below represent the comparison between original designed tokamak (le
     </p>
 </div>
 
-## Reference
-- Designing a tokamak fusion reactor : How does plasma physics fit in? (J.P.Freidberg, F.J.Mangiarotti, J.Minervini, Physics of plasmas, 2015)
-- Spectial topics on fusion reactor enigneering, Jisung Kang, KFE
-- Lecture note on Fusion Reactor Technology 1, Yong-su Na, SNU
-- Direct shape optimization through deep reinforcement learning, Jonathan Viquerat et al
+## 📖 Citation
+If you use this repository in your research, please cite the following:
 
-## Code Citation
-```
-    @ARTICLE{2017arXiv170504862C,
-    author = {{Clemente}, A.~V. and {Castej{\'o}n}, H.~N. and {Chandra}, A.
-        },
-        title = "{Efficient Parallel Methods for Deep Reinforcement Learning}",
-    journal = {ArXiv e-prints},
-    archivePrefix = "arXiv",
-    eprint = {1705.04862},
-    primaryClass = "cs.LG",
-    keywords = {Computer Science - Learning},
-        year = 2017,
-        month = may,
-    adsurl = {http://adsabs.harvard.edu/abs/2017arXiv170504862C},
-    adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-    }
+### 📜 Research Article
+[Design Optimization of Nuclear Fusion Reactor through Deep Reinforcement Learning](https://doi.org/10.48550/arXiv.2409.08231)  
+Jinsu Kim, Jaemin Seo, Arxiv, 2024.
+
+### 📌 Code Repository
+Jinsu Kim (2024). **Fusion-Reactor-Design-Optimization**. GitHub.  
+[https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization](https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization)
+
+#### 📚 BibTeX:
+```bibtex
+@misc{yourgithubrepo,
+  author = {Jinsu Kim},
+  title = {Fusion-Reactor-Design-Optimization},
+  year = {2024},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization}}
+}
 ```

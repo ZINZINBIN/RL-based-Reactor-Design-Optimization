@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite our article and repository."
+authors:
+  - family-names: "Kim"
+    given-names: "Jinsu"
+    orcid: "https://orcid.org/0009-0000-2610-4551"
+title: "RL based Fusion Reactor Design Optimization Code"
+version: "1.0.0"
+doi: "https://doi.org/10.48550/arXiv.2409.08231"  # Replace with your DOI
+url: "https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization"
+date-released: "2024-09-12"
+license: "MIT"
