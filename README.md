@@ -12,8 +12,13 @@ Our computation code can also provide the designed reactor performance, like law
 
 <div>
     <p float = 'left'>
-        <img src="/results/reference_lawson.png"  width="47.5%">
-        <img src="/results/reference_overall.png" width="47.5%">
+        <img src="/results/reference_lawson.png"  width="75%">
+    </p>
+</div>
+
+<div>
+    <p float = 'left'>
+        <img src="/results/reference_overall.png" width="75%">
     </p>
 </div>
 
