@@ -4,7 +4,7 @@ This is a git repository of python codes for designing an optimal tokamak fusion
 
 <div>
     <p float = 'left'>
-        <img src="/figures/design-computation-scheme.png"  width="640" height="400">
+        <img src="/figures/design-computation-scheme.png"  width="75%">
     </p>
 </div>
 
@@ -12,8 +12,8 @@ Our computation code can also provide the designed reactor performance, like law
 
 <div>
     <p float = 'left'>
-        <img src="/results/reference_lawson.png"  width="360" height="320">
-        <img src="/results/reference_overall.png"  width="360" height="320">
+        <img src="/results/reference_lawson.png"  width="47.5%">
+        <img src="/results/reference_overall.png" width="47.5%">
     </p>
 </div>
 
@@ -21,7 +21,7 @@ The framework for optimizing the design configuration of a tokamak is based on p
 
 <div>
     <p float = 'left'>
-        <img src="/figures/design-optimization-scheme.png"  width="640" height="400">
+        <img src="/figures/design-optimization-scheme.png"  width="75%">
     </p>
 </div>
 
@@ -66,23 +66,23 @@ The figures below represent the comparison between original designed tokamak (le
 - Lawson criteria 
 <div>
     <p float = 'left'>
-        <img src="/results/lawson_comparison.png"  width="600" height="480">
+        <img src="/results/lawson_comparison.png"  width="75%">
     </p>
 </div>
 
 - Overall performance (Left:reference, Right:PPO)
 <div>
     <p float = 'left'>
-        <img src="/results/project_overall.png"  width="360" height="320">
-        <img src="/results/ppo_overall.png"  width="360" height="320">
+        <img src="/results/project_overall.png"  width="47.5%">
+        <img src="/results/ppo_overall.png"  width="47.5%">
     </p>
 </div>
 
 - Design configuration (Left:reference, Right:PPO)
 <div>
     <p float = 'left'>
-        <img src="/results/project_poloidal_design.png"  width="360" height="320">
-        <img src="/results/ppo_poloidal_design.png"  width="360" height="320">
+        <img src="/results/project_poloidal_design.png"  width="47.5%">
+        <img src="/results/ppo_poloidal_design.png"  width="47.5%">
     </p>
 </div>
 
