@@ -8,7 +8,7 @@ This is a git repository of python codes for designing an optimal tokamak fusion
     </p>
 </div>
 
-Our computation code can also provide the designed reactor performance, like lawson condition and the minimum requirements for steady-state operation, as given below.
+Our reactor design computation code can also provide the designed reactor performance, like lawson condition and the minimum requirements for steady-state operation, as given below. The below is from the reference design suggested by Friedberg's paper.
 
 <div>
     <p float = 'left'>
