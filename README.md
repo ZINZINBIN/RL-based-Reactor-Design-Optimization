@@ -99,8 +99,8 @@ If you use this repository in your research, please cite the following:
 Jinsu Kim, Jaemin Seo, Arxiv, 2024.
 
 ### 📌 Code Repository
-Jinsu Kim (2024). **Fusion-Reactor-Design-Optimization**. GitHub.  
-[https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization](https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization)
+Jinsu Kim (2024). **RL-based-Reactor-Design-Optimization**. GitHub.  
+[https://github.com/ZINZINBIN/RL-based-Reactor-Design-Optimization/](https://github.com/ZINZINBIN/RL-based-Reactor-Design-Optimization/)
 
 #### 📚 BibTeX:
 ```bibtex
@@ -110,8 +110,8 @@ doi = {https://doi.org/10.48550/arXiv.2409.08231},
 license = {MIT},
 month = sep,
 title = {{Deep Reinforcement Learning based Fusion Reactor Design Optimization Code}},
-url = {https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization},
-howpublished = {\url{https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization}},
+url = {https://github.com/ZINZINBIN/RL-based-Reactor-Design-Optimization/},
+howpublished = {\url{https://github.com/ZINZINBIN/RL-based-Reactor-Design-Optimization/}},
 version = {1.0.0},
 year = {2024}
 }
