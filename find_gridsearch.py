@@ -1,53 +1,62 @@
-from src.device import Tokamak
-from src.profile import Profile
-from src.source import CDsource
-from src.env import Enviornment
-from src.rl.reward import RewardSender
-from src.utility import plot_optimization_status, find_optimal_case
-from src.gridsearch.brute_force import search_param_space
-from config.device_info import config_benchmark, config_liquid
+from src.design.device import Tokamak
+from src.design.profile import Profile
+from src.design.source import CDsource
+from src.design.env import Enviornment
+from src.optim.gridsearch.brute_force import search_param_space_multi_cpu
+from src.config.device_info import config_benchmark
+from src.analysis.util import find_optimal_design
+from src.design.util import save_design
 import pickle
 import argparse, os, warnings
 
 warnings.filterwarnings(action = 'ignore')
 
 def parsing():
-    parser = argparse.ArgumentParser(description="Tokamak design optimization based on Brute force algorithm")
-
-    # Select blanket type: liquid / solid
-    parser.add_argument("--blanket_type", type = str, default = "solid", choices = ['liquid','solid'])
+    parser = argparse.ArgumentParser(description="Tokamak design optimization based on Gridsearch algorithm")
 
     # Setup
     parser.add_argument("--num_episode", type = int, default = 10000)
-    parser.add_argument("--verbose", type = int, default = 1000)
-    parser.add_argument("--n_grid", type = int, default = 10)
-    
-    # Reward setup
-    parser.add_argument("--w_cost", type = float, default = 0.1)
-    parser.add_argument("--w_tau", type = float, default = 0.1)
-    parser.add_argument("--w_beta", type = float, default = 0.5)
-    parser.add_argument("--w_density", type = float, default = 0.5)
-    parser.add_argument("--w_q", type = float, default = 1.0)
-    parser.add_argument("--w_bs", type = float, default = 1.0)
-    parser.add_argument("--w_i", type = float, default = 1.5)
-    parser.add_argument("--w_geo", type = float, default = 1.0)
-    parser.add_argument("--cost_r", type = float, default = 1.0)
-    parser.add_argument("--tau_r", type = float, default = 1.0)
-    parser.add_argument("--a", type = float, default = 1.0)
-    parser.add_argument("--reward_fail", type = float, default = -1.0)
+    parser.add_argument("--verbose", type = int, default = 100)
+    parser.add_argument("--n_grid", type = int, default = 40)
+    parser.add_argument("--n_proc", type=int, default=4)
+
+    # directory
+    parser.add_argument("--save_dir", type=str, default="./results/gridsearch")
 
     args = vars(parser.parse_args())
 
     return args
 
+
+def search_param_space_single_process(param_list, queue):
+    
+    for ctrl in param_list:
+        state = env.step(ctrl)
+
+        if state is None:
+            continue
+
+        env.current_state = state
+        env.current_action = ctrl
+
+    result = {
+        "control": env.actions,
+        "state": env.states,
+        "tau": env.taus,
+        "b_limit": env.b_limits,
+        "q_limit": env.q_limits,
+        "n_limit": env.n_limits,
+        "f_limit": env.f_limits,
+        "i_limit": env.i_limits,
+        "cost": env.costs,
+    }
+
+    queue.put(result)
+
 if __name__ == "__main__":
 
     args = parsing()
-
-    if args['blanket_type'] == 'liquid':
-        config = config_liquid
-    else:
-        config = config_benchmark
+    config = config_benchmark
 
     profile = Profile(
         nu_T = config["nu_T"],
@@ -97,21 +106,6 @@ if __name__ == "__main__":
         flux_ratio = config['flux_ratio']
     )
 
-    reward_sender = RewardSender(
-        w_cost = args['w_cost'],
-        w_tau = args['w_tau'],
-        w_beta = args['w_beta'],
-        w_density=args['w_density'],
-        w_q = args['w_q'],
-        w_bs = args['w_bs'],
-        w_i = args['w_i'],
-        w_geo = args['w_geo'],
-        cost_r = args['cost_r'],
-        tau_r = args['tau_r'],
-        a = args['a'],
-        reward_fail = args['reward_fail']
-    )
-
     init_action = {
         'betan':config['betan'],
         'k':config['k'],
@@ -126,32 +120,25 @@ if __name__ == "__main__":
 
     init_state = tokamak.get_design_performance()
 
-    env = Enviornment(tokamak, reward_sender, init_state, init_action)
+    env = Enviornment(tokamak, init_state, init_action)
 
     # directory
-    if not os.path.exists("./results"):
-        os.makedirs("./results")
-
-    tag = "gridsearch_{}".format(args['blanket_type'])
-    save_result = "./results/params_search_{}.pkl".format(tag)
-
+    if not os.path.exists(args["save_dir"]):
+        os.makedirs(args["save_dir"])
+    
+    save_result = os.path.join(args['save_dir'], "params_search.pkl")
+    
     # Design optimization
     print("============ Design optimization ============")
-    result = search_param_space(
-        env,
+    result = search_param_space_multi_cpu(
+        search_param_space_single_process,
         args['num_episode'],
-        args['verbose'],
-        args['n_grid']
+        args['n_grid'],
+        args['n_proc']
     )
 
-    print("======== Logging optimization process ========")
-    optimization_status = env.optim_status
-    plot_optimization_status(optimization_status, args['verbose'], "./results/gridsearch_optimization")
-
-    with open(save_result, 'wb') as file:
+    with open(save_result, "wb") as file:
         pickle.dump(result, file)
-    
-    # save optimal design information
-    find_optimal_case(result, {"save_dir":"./results", "tag":"gridsearch"})
-    
-    env.close()
+
+    optimal = find_optimal_design(result)
+    save_design(optimal, args['save_dir'], "optimal_config.pkl")

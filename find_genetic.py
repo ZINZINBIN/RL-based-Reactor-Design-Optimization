@@ -3,33 +3,29 @@ from src.design.profile import Profile
 from src.design.source import CDsource
 from src.design.env import Enviornment
 from src.config.device_info import config_benchmark
+from src.optim.genetic.optimization import search_param_space
 from src.optim.util import objective, constraint
-from src.optim.rl.unconstrained.ppo import search_param_space, ReplayBuffer, ActorCritic
 from src.analysis.util import find_optimal_design
 from src.design.util import save_design
-import pickle, torch, argparse, os, warnings
+import pickle
+import argparse, os, warnings
 
 warnings.filterwarnings(action="ignore")
 
 def parsing():
-    parser = argparse.ArgumentParser(description="Tokamak design optimization based on reinforcement learning algorithm")
+    parser = argparse.ArgumentParser(description="Tokamak design optimization based on genetic algorithm")
 
     # Setup
     parser.add_argument("--num_episode", type=int, default=10000)
-    parser.add_argument("--sample_size", type=int, default=1000)
     parser.add_argument("--verbose", type=int, default=100)
+    parser.add_argument("--pop_size", type=int, default=32)
+    parser.add_argument("--num_parents", type=int, default=16)
+    parser.add_argument("--mutation_rate", type=int, default=0.2)
+    parser.add_argument("--mutation_sigma", type=int, default=0.25)
     parser.add_argument("--n_proc", type=int, default=4)
 
-    parser.add_argument("--buffer_size", type=int, default=5)
-    parser.add_argument("--mlp_dim", type=int, default=64)
-    parser.add_argument("--std", type=float, default=0.50)
-    parser.add_argument("--lr", type=float, default=2e-4)
-    parser.add_argument("--gamma", type=float, default=0.99)
-    parser.add_argument("--eps_clip", type=float, default=0.2)
-    parser.add_argument("--entropy_coeff", type=float, default=0.1)
-    
     # directory
-    parser.add_argument("--save_dir", type=str, default="./results/rl")
+    parser.add_argument("--save_dir", type=str, default="./results/genetic")
 
     args = vars(parser.parse_args())
 
@@ -110,32 +106,19 @@ if __name__ == "__main__":
 
     save_result = os.path.join(args["save_dir"], "params_search.pkl")
 
-    # Setup
-    memory = ReplayBuffer(capacity = args['buffer_size'])
-    criterion = torch.nn.SmoothL1Loss(reduction="none")
-    policy_network = ActorCritic(input_dim = 21, mlp_dim = args['mlp_dim'], n_actions = 9, std = args['std'])
-    policy_optimizer = torch.optim.RMSprop(policy_network.parameters(), lr = args['lr'])
-
     # Design optimization
     print("============ Design optimization ============")
     result = search_param_space(
         env,
         objective,
         constraint,
-        memory,
-        policy_network,
-        policy_optimizer,
-        criterion,
-        args['gamma'],
-        args['eps_clip'],
-        args['entropy_coeff'],
-        "cpu",
-        None,
-        None,
         args['num_episode'],
         args['verbose'],
-        args["n_proc"],
-        args['sample_size']
+        args['pop_size'],
+        args['mutation_rate'],
+        args['mutation_sigma'],
+        args['num_parents'],
+        args['n_proc']
     )
 
     with open(save_result, "wb") as file:

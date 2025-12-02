@@ -1,10 +1,15 @@
 # weight
 weights/*
+*.pt
 
 # results pickle
-results/*.pickle
-results/*.pkl
+*.pickle
+*.pkl
+
+# slurm process
+*.out
+*.err
+*.slurm
 
 # pycache
 *.pyc
-__pycache__/

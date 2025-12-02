@@ -12,13 +12,13 @@ Our reactor design computation code can also provide the designed reactor perfor
 
 <div>
     <p float = 'left'>
-        <img src="/results/reference_lawson.png"  width="75%">
+        <img src="/results/design/benchmark/lawson.png"  width="75%">
     </p>
 </div>
 
 <div>
     <p float = 'left'>
-        <img src="/results/reference_overall.png" width="75%">
+        <img src="/results/design/benchmark/overall.png" width="75%">
     </p>
 </div>
 
@@ -31,12 +31,13 @@ The framework for optimizing the design configuration of a tokamak is based on p
 </div>
 
 ## How to execute
-### Computation of the desired tokamak design
-- Exectue main.py with modifying the configuration of the device in config/device_info.py
-- You can print the detail of the tokamak design and its performance from Lawson criteria
+### Computation of the tokamak reactor design
+- Exectue compute_design.py. You can compute the benchmark design and the optimized design by modifying the configuration of the device in config/device_info.py
+- You can plot the detail of the tokamak design and the performance by Lawson criteria
     ```
-        python3 main.py --save_dir {directory name} --tag {tag name} --use_benchmark {True or False} --use_rl {True or False}
+        python3 compute_design.py --save_dir {directory name} --use_benchmark {True or False}
     ```
+    
 ### Find the optimal tokamak design with reinforcement learning
 - We use Gridserach and Deep Reinforcement learning algorithm for reactor design optimization.
 - In the case of RL, we use modified PPO algorithm to find out the optimal tokamak design which satisfies operation limits

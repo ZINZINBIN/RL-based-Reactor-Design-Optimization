@@ -4,7 +4,7 @@ from src.design.source import CDsource
 from src.design.env import Enviornment
 from src.config.device_info import config_benchmark
 from src.optim.util import objective, constraint
-from src.optim.rl.unconstrained.ppo import search_param_space, ReplayBuffer, ActorCritic
+from src.optim.rl.constrained.rcpo import search_param_space, ReplayBuffer, ActorCritic
 from src.analysis.util import find_optimal_design
 from src.design.util import save_design
 import pickle, torch, argparse, os, warnings
@@ -12,7 +12,7 @@ import pickle, torch, argparse, os, warnings
 warnings.filterwarnings(action="ignore")
 
 def parsing():
-    parser = argparse.ArgumentParser(description="Tokamak design optimization based on reinforcement learning algorithm")
+    parser = argparse.ArgumentParser(description="Tokamak design optimization based on constrained reinforcement learning algorithm")
 
     # Setup
     parser.add_argument("--num_episode", type=int, default=10000)
@@ -24,12 +24,13 @@ def parsing():
     parser.add_argument("--mlp_dim", type=int, default=64)
     parser.add_argument("--std", type=float, default=0.50)
     parser.add_argument("--lr", type=float, default=2e-4)
+    parser.add_argument("--lr_lamda", type=float, default=1e-3)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--eps_clip", type=float, default=0.2)
     parser.add_argument("--entropy_coeff", type=float, default=0.1)
-    
+
     # directory
-    parser.add_argument("--save_dir", type=str, default="./results/rl")
+    parser.add_argument("--save_dir", type=str, default="./results/crl")
 
     args = vars(parser.parse_args())
 
@@ -116,6 +117,9 @@ if __name__ == "__main__":
     policy_network = ActorCritic(input_dim = 21, mlp_dim = args['mlp_dim'], n_actions = 9, std = args['std'])
     policy_optimizer = torch.optim.RMSprop(policy_network.parameters(), lr = args['lr'])
 
+    log_lamda = torch.nn.Parameter(torch.log(torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0])), requires_grad=True)
+    lamda_optimizer = torch.optim.SGD([log_lamda], lr=args["lr_lamda"])
+
     # Design optimization
     print("============ Design optimization ============")
     result = search_param_space(
@@ -125,6 +129,8 @@ if __name__ == "__main__":
         memory,
         policy_network,
         policy_optimizer,
+        log_lamda,
+        lamda_optimizer,
         criterion,
         args['gamma'],
         args['eps_clip'],
