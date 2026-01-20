@@ -7,15 +7,22 @@ import numpy as np
 from tqdm.auto import tqdm
 from typing import Optional, Dict, Callable, List
 
-from src.design.env import Enviornment
+from src.design.env import Environment
 from src.config.search_space_info import search_space, state_space
 
 from collections import namedtuple, deque
 from joblib import Parallel, delayed
 from multiprocessing import cpu_count
 
+# Seed for reproducibility
+np.random.seed(42)
+
+torch.manual_seed(42)
+torch.cuda.manual_seed(42)
+
 torch.autograd.set_detect_anomaly(True)
 torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 # transition
 Transition = namedtuple(
@@ -209,16 +216,16 @@ def update_policy(
     return loss
 
 # Evaluation of the design performance
-def evaluate_single_process(env:Enviornment, ctrl:Dict, objective:Callable, constraint:Callable):
+def evaluate_single_process(env:Environment, ctrl:Dict, objective:Callable, constraint:Callable):
     state = env.step(ctrl)
     return objective(state, discretized=False), constraint(state, discretized = False), state
 
 # batch-evaluation of the design performance for multi-core process
-def evaluate_batch(env:Enviornment, ctrl_batch:List, objective:Callable, constraint:Callable):
+def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
     return [evaluate_single_process(env, ctrl, objective, constraint) for ctrl in ctrl_batch]
 
 def search_param_space(
-    env: Enviornment,
+    env: Environment,
     objective: Callable,
     constraint: Callable,
     memory: ReplayBuffer,

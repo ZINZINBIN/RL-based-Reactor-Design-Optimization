@@ -1,12 +1,15 @@
 import numpy as np
 from typing import Callable, List, Dict, Union
 from tqdm import tqdm
-from src.design.env import Enviornment
-from src.optim.bayes.bo.optimizer import BayesOpt
+from src.design.env import Environment
+from src.optim.bayes.optimizer import BayesianOptimizer
 from sklearn.gaussian_process.kernels import Kernel
 from src.config.search_space_info import search_space, state_space
 from joblib import Parallel, delayed
 from multiprocessing import cpu_count
+
+# Seed for reproducibility
+np.random.seed(42)
 
 ctrl_keys = search_space.keys()
 state_keys = state_space.keys()
@@ -19,9 +22,9 @@ class DesignOptimizer:
 
         self.state_keys = state_keys_list
         self.ctrl_keys = ctrl_keys_list
-        
+
         bounds = []
-        
+
         for param in search_space.keys():
             p_min = search_space[param][0]
             p_max = search_space[param][1]
@@ -29,27 +32,27 @@ class DesignOptimizer:
 
         bounds = np.array(bounds)
 
-        self.optim = BayesOpt(kernel, bounds, buffer_size, xi, n_restart)
+        self.optim = BayesianOptimizer(kernel, bounds, buffer_size, xi, n_restart)
 
     def update(self):
         self.optim.update()
 
     def register_batch(self, states:List[Dict], ctrls:List[Dict], fs:np.ndarray, gs:np.ndarray):
+
         X_sample = []
+        
         for ctrl in ctrls:
             X_sample.append(self._dict2arr(ctrl, self.ctrl_keys).reshape(1,-1))
-        
+
         X_sample = np.vstack(X_sample)
         Y_sample = fs
+
         self.optim.register(X_sample, Y_sample)
 
     def register(self, state:Dict, ctrl:Dict, f:Union[float, np.array], g:np.array):
+
         X_sample = self._dict2arr(ctrl, self.ctrl_keys)
-        
-        if type(f) != np.array:
-            Y_sample = np.array([f])
-        else:
-            Y_sample = f
+        Y_sample = f
         
         self.optim.register(X_sample, Y_sample)
 
@@ -63,11 +66,7 @@ class DesignOptimizer:
 
         for key in keys:
             v = x[key]
-
-            if type(v) == np.array:
-                y.append(v.item())
-            else:
-                y.append(v)
+            y.append(v.item())
 
         return np.array(y)
 
@@ -81,24 +80,24 @@ class DesignOptimizer:
         return y
 
 # Evaluation of the design performance
-def evaluate_single_process(env:Enviornment, ctrl:Dict, objective:Callable, constraint:Callable):
+def evaluate_single_process(env: Environment, ctrl: Dict, objective: Callable, constraint: Callable):
     state = env.step(ctrl)
     return objective(state, discretized=False), constraint(state, discretized = False), state
 
 # batch-evaluation of the design performance for multi-core process
-def evaluate_batch(env:Enviornment, ctrl_batch:List, objective:Callable, constraint:Callable):
+def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
     return [evaluate_single_process(env, ctrl, objective, constraint) for ctrl in ctrl_batch]
 
 # Search optimial design parameters using Bayesian optimization
 def search_param_space(
-    env: Enviornment,
-    optimizer:DesignOptimizer,
+    env: Environment,
+    optimizer: DesignOptimizer,
     objective: Callable,
     constraint: Callable,
     num_episode: int = 10000,
     verbose: int = 100,
     n_proc: int = -1,
-    sample_size:int = 1024,
+    sample_size: int = 1024,
 ):
 
     # Step 1. Initial samples generation for training GP in the Optimizer (Random sampling)

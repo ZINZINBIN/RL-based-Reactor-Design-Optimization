@@ -1,26 +1,29 @@
 import numpy as np
 from typing import Callable, List, Dict
 from tqdm import tqdm
-from src.design.env import Enviornment
+from src.design.env import Environment
 from src.config.search_space_info import search_space, state_space
 from joblib import Parallel, delayed
 from multiprocessing import cpu_count
+
+# Seed for reproducibility
+np.random.seed(42)
 
 ctrl_keys = search_space.keys()
 state_keys = state_space.keys()
 
 ctrl_keys_list = list(ctrl_keys)
 
-def evaluate_single_process(env:Enviornment, ctrl:Dict, objective:Callable, constraint:Callable):
+def evaluate_single_process(env:Environment, ctrl:Dict, objective:Callable, constraint:Callable):
     state = env.step(ctrl)
     return objective(state), constraint(state), state
 
-def evaluate_batch(env:Enviornment, ctrl_batch:List, objective:Callable, constraint:Callable):
+def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
     return [evaluate_single_process(env, ctrl, objective, constraint) for ctrl in ctrl_batch]
 
 # genetic algorithm for design optimization
 def search_param_space(
-    env: Enviornment,
+    env: Environment,
     objective:Callable,
     constraint:Callable,
     num_episode: int = 10000,

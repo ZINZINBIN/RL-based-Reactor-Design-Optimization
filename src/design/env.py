@@ -2,7 +2,7 @@ import numpy as np
 from src.design.device import Tokamak
 from src.config.search_space_info import search_space
 
-class Enviornment:
+class Environment:
     def __init__(self, tokamak: Tokamak, init_state, init_action):
         self.tokamak = tokamak
 
@@ -35,7 +35,7 @@ class Enviornment:
         self.init_state = init_state
         self.init_action = init_action
 
-    def step(self, action):
+    def step(self, action, save:bool=True):
         
         # scaling
         if (action["electric_power"] <= search_space["electric_power"][1] and action["electric_power"] >= search_space["electric_power"][0]):
@@ -77,24 +77,25 @@ class Enviornment:
         # update state
         self.current_action = action
         self.current_state = state
+        
+        if save:
+            # save values
+            self.actions.append(action)
+            self.states.append(state)
 
-        # save values
-        self.actions.append(action)
-        self.states.append(state)
+            tau = state["tau"] if state is not None else None
+            cost = state["cost"] if state is not None else None
+            Q = state["Q"] if state is not None else None
 
-        tau = state["tau"] if state is not None else None
-        cost = state["cost"] if state is not None else None
-        Q = state["Q"] if state is not None else None
+            self.taus.append(tau)
+            self.costs.append(cost)
+            self.Qs.append(Q)
 
-        self.taus.append(tau)
-        self.costs.append(cost)
-        self.Qs.append(Q)
-
-        self.b_limits.append(is_b_limit)
-        self.q_limits.append(is_q_limit)
-        self.n_limits.append(is_n_limit)
-        self.f_limits.append(is_f_limit)
-        self.i_limits.append(is_i_limit)
+            self.b_limits.append(is_b_limit)
+            self.q_limits.append(is_q_limit)
+            self.n_limits.append(is_n_limit)
+            self.f_limits.append(is_f_limit)
+            self.i_limits.append(is_i_limit)
     
         return state
 

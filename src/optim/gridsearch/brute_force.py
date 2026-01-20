@@ -3,12 +3,15 @@ import random
 from itertools import product
 from multiprocessing import cpu_count, Process, Queue
 from typing import Optional, Callable, List
-from src.design.env import Enviornment
+from src.design.env import Environment
 from src.config.search_space_info import search_space
+
+# Seed for reproducibility
+np.random.seed(42)
 
 # For single cpu processing
 def search_param_space(
-    env : Enviornment,
+    env : Environment,
     num_episode : int = 10000,  
     verbose : int = 8,
     n_grid : int = 32
@@ -81,17 +84,18 @@ def search_param_space_multi_cpu(
 
     if n_proc == -1:
         n_proc = cpu_count()
-    
+
     param_space = {}
 
+    # Gaussian sampling
     for param in search_space.keys():
-
         p_min = search_space[param][0]
         p_max = search_space[param][1]
 
-        ps = np.linspace(p_min, p_max, n_grid)
-        indice = np.random.randint(0,n_grid, num_episode)
-        param_space[param] = ps[indice]
+        mu = 0.5 * (p_min + p_max)
+        sig = (p_max - p_min) * 0.5
+        sample = mu + sig * np.random.randn(num_episode)
+        param_space[param] = np.clip(sample, p_min, p_max)
 
     combinations = []
 
@@ -112,10 +116,10 @@ def search_param_space_multi_cpu(
 
     queue = Queue()
     processes = []
-    
+
     for i in range(n_proc):
         param_list = chunks[i]
-        
+
         p = Process(target=search_param_space_single_process, args=(param_list, queue))
         p.start()
         processes.append(p)
@@ -133,13 +137,13 @@ def search_param_space_multi_cpu(
     }
 
     for _ in range(n_proc):
-        
+
         result = queue.get()
-        
+
         for k in combined.keys():
             combined[k].extend(result[k])
 
     for p in processes:
         p.join()
-    
+
     return combined

@@ -1,7 +1,7 @@
 from src.design.device import Tokamak
 from src.design.profile import Profile
 from src.design.source import CDsource
-from src.design.env import Enviornment
+from src.design.env import Environment
 from src.config.device_info import config_benchmark
 from src.optim.genetic.optimization import search_param_space
 from src.optim.util import objective, constraint
@@ -21,7 +21,7 @@ def parsing():
     parser.add_argument("--pop_size", type=int, default=32)
     parser.add_argument("--num_parents", type=int, default=16)
     parser.add_argument("--mutation_rate", type=int, default=0.2)
-    parser.add_argument("--mutation_sigma", type=int, default=0.25)
+    parser.add_argument("--mutation_sigma", type=int, default=1.5)
     parser.add_argument("--n_proc", type=int, default=4)
 
     # directory
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     init_state = tokamak.get_design_performance()
 
-    env = Enviornment(tokamak, init_state, init_action)
+    env = Environment(tokamak, init_state, init_action)
 
     # directory
     if not os.path.exists(args["save_dir"]):

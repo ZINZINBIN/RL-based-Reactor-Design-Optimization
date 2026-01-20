@@ -7,7 +7,7 @@ import numpy as np
 from tqdm.auto import tqdm
 from typing import Optional, Dict, Callable, List
 
-from src.design.env import Enviornment
+from src.design.env import Environment
 from src.config.search_space_info import search_space, state_space
 
 from collections import namedtuple, deque
@@ -263,16 +263,16 @@ def update_policy(
 
 
 # Evaluation of the design performance
-def evaluate_single_process(env:Enviornment, ctrl:Dict, objective:Callable, constraint:Callable):
+def evaluate_single_process(env:Environment, ctrl:Dict, objective:Callable, constraint:Callable):
     state = env.step(ctrl)
     return objective(state), constraint(state), state
 
 # batch-evaluation of the design performance for multi-core process
-def evaluate_batch(env:Enviornment, ctrl_batch:List, objective:Callable, constraint:Callable):
+def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
     return [evaluate_single_process(env, ctrl, objective, constraint) for ctrl in ctrl_batch]
 
 def search_param_space(
-    env: Enviornment,
+    env: Environment,
     objective: Callable,
     constraint: Callable,
     memory: ReplayBuffer,

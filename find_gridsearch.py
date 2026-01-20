@@ -1,7 +1,7 @@
 from src.design.device import Tokamak
 from src.design.profile import Profile
 from src.design.source import CDsource
-from src.design.env import Enviornment
+from src.design.env import Environment
 from src.optim.gridsearch.brute_force import search_param_space_multi_cpu
 from src.config.device_info import config_benchmark
 from src.analysis.util import find_optimal_design
@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     init_state = tokamak.get_design_performance()
 
-    env = Enviornment(tokamak, init_state, init_action)
+    env = Environment(tokamak, init_state, init_action)
 
     # directory
     if not os.path.exists(args["save_dir"]):

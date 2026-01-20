@@ -1,7 +1,7 @@
 from src.design.device import Tokamak
 from src.design.profile import Profile
 from src.design.source import CDsource
-from src.design.env import Enviornment
+from src.design.env import Environment
 from src.config.device_info import config_benchmark
 from src.optim.util import objective, constraint
 from src.optim.rl.unconstrained.ppo import search_param_space, ReplayBuffer, ActorCritic
@@ -27,13 +27,29 @@ def parsing():
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--eps_clip", type=float, default=0.2)
     parser.add_argument("--entropy_coeff", type=float, default=0.1)
-    
+
     # directory
     parser.add_argument("--save_dir", type=str, default="./results/rl")
 
     args = vars(parser.parse_args())
 
     return args
+
+# torch device state
+print("=============== Device setup ===============")
+print("torch cuda avaliable : ", torch.cuda.is_available())
+
+if torch.cuda.is_available():
+    print("torch current gpu : ", torch.cuda.current_device())
+    print("torch available gpus : ", torch.cuda.device_count())
+
+    # torch cuda initialize and clear cache
+    torch.cuda.init()
+    torch.cuda.empty_cache()
+else:
+    print("torch current gpu : None")
+    print("torch available gpus : None")
+    print("CPU computation")
 
 if __name__ == "__main__":
 
@@ -102,7 +118,7 @@ if __name__ == "__main__":
 
     init_state = tokamak.get_design_performance()
 
-    env = Enviornment(tokamak, init_state, init_action)
+    env = Environment(tokamak, init_state, init_action)
 
     # directory
     if not os.path.exists(args["save_dir"]):

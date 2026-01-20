@@ -215,12 +215,26 @@ def plot_scatter_feasibility(
     filename: Optional[str] = None
 ):
 
-    ys = [comp[yparam] for comp in result["state"]]
+    ys = np.array([comp[yparam] for comp in result["state"]])
 
-    b_limits = [comp["beta"] / comp["beta_troyon"] for comp in result["state"]]
-    q_limits = [comp["q"] / comp["q_kink"] for comp in result["state"]]
-    n_limits = [comp["n"] / comp["n_g"] for comp in result["state"]]
-    f_limits = [comp["f_NC"] / comp["f_BS"] for comp in result["state"]]
+    b_limits = np.array([comp["beta"] / comp["beta_troyon"] for comp in result["state"]])
+    q_limits = np.array([comp["q"] / comp["q_kink"] for comp in result["state"]])
+    n_limits = np.array([comp["n"] / comp["n_g"] for comp in result["state"]])
+    f_limits = np.array([comp["f_NC"] / comp["f_BS"] for comp in result["state"]])
+
+    # feasible solutions
+    feasb_b_limit = np.array(result["b_limit"])
+    feasb_q_limit = np.array(result["q_limit"])
+    feasb_n_limit = np.array(result["n_limit"])
+    feasb_f_limit = np.array(result["f_limit"])
+
+    tau = np.array([comp["tau"] for comp in result["state"]])
+    tbr = np.array([result["state"][idx]["TBR"] for idx in range(len(tau))])
+
+    Qs = np.array([comp["Q"] for comp in result["state"]])
+
+    feasb_indices = np.where(((feasb_b_limit == 1) * (feasb_n_limit == 1) * (feasb_q_limit == 1) * (feasb_f_limit == 1) * (tbr >= 1) * (Qs > 10.0)) == 1)
+    feasb_indices = feasb_indices[0].tolist()
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 12))
     axes = axes.ravel()
@@ -229,6 +243,7 @@ def plot_scatter_feasibility(
 
     axes[0].fill_betweenx(yaxis, 1, 5, facecolor="gray", alpha = 0.2)
     axes[0].scatter(b_limits, ys, s = 0.5)
+    axes[0].scatter(b_limits[feasb_indices], ys[feasb_indices], c='r', s=0.75)
     axes[0].set_xlabel(r"$\beta / \beta_{troyon}$")
     axes[0].set_ylabel(ylabel)
     axes[0].set_xlim([0,3.0])
@@ -236,6 +251,7 @@ def plot_scatter_feasibility(
 
     axes[1].fill_betweenx(yaxis, 0, 1, facecolor="gray", alpha=0.2)
     axes[1].scatter(q_limits, ys, s=0.5)
+    axes[1].scatter(q_limits[feasb_indices], ys[feasb_indices], c="r", s=0.75)
     axes[1].set_xlabel(r"$q / q_{kink}$")
     axes[1].set_ylabel(ylabel)
     axes[1].set_xlim([0, 2.5])
@@ -243,6 +259,7 @@ def plot_scatter_feasibility(
 
     axes[2].fill_betweenx(yaxis, 1, 5, facecolor="gray", alpha=0.2)
     axes[2].scatter(n_limits, ys, s=0.5)
+    axes[2].scatter(n_limits[feasb_indices], ys[feasb_indices], c="r", s=0.75)
     axes[2].set_xlabel(r"$n / n_g$")
     axes[2].set_ylabel(ylabel)
     axes[2].set_xlim([0, 3.0])
@@ -250,6 +267,7 @@ def plot_scatter_feasibility(
 
     axes[3].fill_betweenx(yaxis, 0, 1, facecolor="gray", alpha=0.2)
     axes[3].scatter(f_limits, ys, s=0.5)
+    axes[3].scatter(f_limits[feasb_indices], ys[feasb_indices], c="r", s=0.75)
     axes[3].set_xlabel(r"$f_{NC} / f_{BS}$")
     axes[3].set_ylabel(ylabel)
     axes[3].set_xlim([0, 3.0])
