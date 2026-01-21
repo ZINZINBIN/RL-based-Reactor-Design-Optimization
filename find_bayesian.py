@@ -23,7 +23,7 @@ def parsing():
     parser.add_argument("--n_proc", type=int, default=4)
     parser.add_argument("--buffer_size", type=int, default=256)
     parser.add_argument("--xi", type=float, default=0.01)
-    parser.add_argument("--n_restart", type=int, default=64)
+    parser.add_argument("--n_restart", type=int, default=32)
 
     # directory
     parser.add_argument("--save_dir", type=str, default="./results/bayesian")
@@ -127,4 +127,6 @@ if __name__ == "__main__":
         pickle.dump(result, file)
 
     optimal = find_optimal_design(result)
-    save_design(optimal, args["save_dir"], "optimal_config.pkl")
+    
+    if optimal is not None:
+        save_design(optimal, args["save_dir"], "optimal_config.pkl")

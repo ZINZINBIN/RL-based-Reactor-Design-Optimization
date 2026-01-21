@@ -77,7 +77,7 @@ class DesignOptimizer:
 
 def evaluate_single_process(env:Environment, ctrl:Dict, objective:Callable, constraint:Callable):
     state = env.step(ctrl)
-    return objective(state, discretized=False), constraint(state, discretized = False), state
+    return objective(state), constraint(state), state
 
 def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
     return [evaluate_single_process(env, ctrl, objective, constraint) for ctrl in ctrl_batch]
@@ -186,6 +186,9 @@ def search_param_space(
                 traj_costs.append(state["cost"])
                 traj_Qs.append(state["Q"])
                 traj_taus.append(state["tau"])
+                
+        # Register evaluated samples to the optimizer
+        optimizer.register_batch(states, ctrls, fs, gs)
 
         # update particle
         optimizer.update()

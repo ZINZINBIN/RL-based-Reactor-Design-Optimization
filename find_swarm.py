@@ -18,10 +18,10 @@ def parsing():
     # Setup
     parser.add_argument("--num_episode", type=int, default=10000)
     parser.add_argument("--verbose", type=int, default=100)
-    parser.add_argument("--n_particles", type=int, default=128)
-    parser.add_argument("--w", type=float, default=0.7)
-    parser.add_argument("--c1", type=float, default=1.5)
-    parser.add_argument("--c2", type=float, default=1.5)
+    parser.add_argument("--n_particles", type=int, default=32)
+    parser.add_argument("--w", type=float, default=0.5)
+    parser.add_argument("--c1", type=float, default=1.0)
+    parser.add_argument("--c2", type=float, default=1.0)
     parser.add_argument("--n_proc", type=int, default=4)
 
     # directory
@@ -125,4 +125,6 @@ if __name__ == "__main__":
         pickle.dump(result, file)
 
     optimal = find_optimal_design(result)
-    save_design(optimal, args["save_dir"], "optimal_config.pkl")
+    
+    if optimal is not None:
+        save_design(optimal, args["save_dir"], "optimal_config.pkl")

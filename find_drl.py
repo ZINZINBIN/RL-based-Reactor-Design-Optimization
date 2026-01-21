@@ -158,4 +158,6 @@ if __name__ == "__main__":
         pickle.dump(result, file)
 
     optimal = find_optimal_design(result)
-    save_design(optimal, args["save_dir"], "optimal_config.pkl")
+    
+    if optimal is not None:
+        save_design(optimal, args["save_dir"], "optimal_config.pkl")
