@@ -21,7 +21,7 @@ def parsing():
     parser.add_argument("--pop_size", type=int, default=32)
     parser.add_argument("--num_parents", type=int, default=16)
     parser.add_argument("--mutation_rate", type=int, default=0.2)
-    parser.add_argument("--mutation_sigma", type=int, default=1.5)
+    parser.add_argument("--mutation_sigma", type=int, default=1.0)
     parser.add_argument("--n_proc", type=int, default=4)
 
     # directory

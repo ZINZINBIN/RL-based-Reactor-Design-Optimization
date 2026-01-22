@@ -10,7 +10,7 @@ def parsing():
     parser = argparse.ArgumentParser(description="Reactor design computation code")
     parser.add_argument("--save_dir", type = str, default = "./results/design")
     parser.add_argument("--use_benchmark", type=bool, default=False)
-    parser.add_argument("--algorithm", type=str, default="bayesian", choices=["genetic", "bayesian", "gridsearch", "crl", "rl"])
+    parser.add_argument("--algorithm", type=str, default="bayesian", choices=["genetic", "bayesian", "gridsearch", "crl", "rl", "particle"])
     args = vars(parser.parse_args())
     return args
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         tag = "benchmark"
     else:
         tag = args['algorithm']
-        config_path = os.path.join("./results", args['algorithm'], "config.pkl")
+        config_path = os.path.join("./results", args['algorithm'], "optimal_config.pkl")
         config = read_design(config_path)
     
     filepath = os.path.join(args['save_dir'], tag)

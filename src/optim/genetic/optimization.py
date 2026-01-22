@@ -86,6 +86,8 @@ def search_param_space(
         fs = np.array(fs)
         gs = np.array(gs)
 
+        '''
+        # Method 01. save all state
         for state, action, g in zip(states, combinations, gs):
 
             if state is None:
@@ -102,7 +104,27 @@ def search_param_space(
                 traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
                 traj_actions.append(action)
                 traj_states.append(state)
-
+        '''
+                
+        # Method 02. save best state
+        idx_max = np.argmax(fs)
+        
+        state = states[idx_max]
+        g = gs[idx_max]
+        action = combinations[idx_max]
+        
+        traj_costs.append(state['cost'])
+        traj_taus.append(state['tau'])
+        traj_Qs.append(state['Q'])
+        traj_b_limits.append(g[0])
+        traj_q_limits.append(g[1])
+        traj_n_limits.append(g[2])
+        traj_f_limits.append(g[3])
+        traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
+        traj_actions.append(action)
+        traj_states.append(state)
+        
+        
         best_scores.append(fs.max())
 
         # greedy selection

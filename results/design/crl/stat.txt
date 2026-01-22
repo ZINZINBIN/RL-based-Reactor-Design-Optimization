@@ -1,0 +1,43 @@
+
+================================================
+============= Tokamak design info ==============
+================================================
+
+=============== Structure design ===============
+
+| CS coil | TF coil | shield | blanket | 1st wall ) core ) 1st wall ) blanket ) shield ) TF coil
+================ Geometric info ================
+| Major radius R : 5.923 m
+| Minor radius a : 1.643 m
+| Armour : 0.031 m
+| Blanket : 1.177 m
+| Shield : 0.100 m
+| TF coil : 0.844 m
+| total thickness : 3.795 m
+============== Physical parameters ==============
+| Magnetic field : 11.609 T
+| Elongation : 1.829
+| Aspect ratio : 3.605
+| Thermal efficiency : 0.400
+| Electric power : 1439.068 MW
+| Thermal power : 3598.121 MW
+| TBR : 2.188
+| beta : 4.727
+| tau : 1.071 s
+| Ip : 13.603 MA
+| q : 2.213
+| li : 0.022
+| f_bs : 0.571
+| Q-parallel : 577.20 MW-T/m
+| T_avg : 14.61 keV
+| n_avg : 1.24x10^20 #/m^3
+| p_avg : 6.96 atm
+| Q : 11.24
+=============== Operation limit ================
+| Greenwald density : 1.605, operation density : 1.240 | O
+| q-kink : 2.000, operation q : 2.213 | O
+| Troyon beta : 4.754, operation beta : 4.727 | O
+| Neoclassical f_bs : 0.778, operation f_bs : 0.571 | O
+| Lawson nTau : 2.135 , operation n*Tau: 1.328 | X
+| Cost params : 0.867
+================================================

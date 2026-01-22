@@ -159,17 +159,15 @@ def search_param_space(
         ctrls = optimizer.extract_batch()
         batch_ctrls = [ctrls[i : i + batch_size] for i in range(0, n_particles, batch_size)]
 
-        evals_batches = Parallel(n_jobs=n_proc)(
-            delayed(evaluate_batch)(env, batch, objective, constraint)
-            for batch in batch_ctrls
-        )
-
+        evals_batches = Parallel(n_jobs=n_proc)(delayed(evaluate_batch)(env, batch, objective, constraint) for batch in batch_ctrls)
         evals = [item for sublist in evals_batches for item in sublist]
         fs, gs, states = zip(*evals)
 
         fs = np.array(fs)
         gs = np.array(gs)
 
+        '''
+        # Method 01. save all state
         for state, action, g in zip(states, ctrls, gs):
 
             if state is None:
@@ -186,7 +184,25 @@ def search_param_space(
                 traj_costs.append(state["cost"])
                 traj_Qs.append(state["Q"])
                 traj_taus.append(state["tau"])
-                
+        '''
+        # Method 02. save best state
+        idx_max = np.argmax(fs)
+        
+        state = states[idx_max]
+        g = gs[idx_max]
+        action = ctrls[idx_max]
+        
+        traj_costs.append(state['cost'])
+        traj_taus.append(state['tau'])
+        traj_Qs.append(state['Q'])
+        traj_b_limits.append(g[0])
+        traj_q_limits.append(g[1])
+        traj_n_limits.append(g[2])
+        traj_f_limits.append(g[3])
+        traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
+        traj_actions.append(action)
+        traj_states.append(state)
+        
         # Register evaluated samples to the optimizer
         optimizer.register_batch(states, ctrls, fs, gs)
 
@@ -207,6 +223,9 @@ def search_param_space(
                     traj_i_limits[-1],
                 )
             )
+
+        if i_episode >= num_episode:
+            break
 
     result = {
         "control": traj_actions[:num_episode],

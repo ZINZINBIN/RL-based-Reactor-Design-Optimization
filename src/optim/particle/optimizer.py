@@ -66,9 +66,9 @@ class ParticleSwarmOptimizer:
                     self.ptls[idx].best_x = xs[idx].copy()
                     self.ptls[idx].best_f = fs[idx]
 
-                    if self.global_best_f == float("inf") * (-1) or fs[idx] > self.global_best_f:
-                        self.global_best_x = xs[idx].copy()
-                        self.global_best_f = fs[idx]
+                if self.global_best_f == float("inf") * (-1) or fs[idx] > self.global_best_f:
+                    self.global_best_x = xs[idx].copy()
+                    self.global_best_f = fs[idx]
 
     def update(self):
 

@@ -59,9 +59,22 @@ def find_optimal_design(result:Dict):
     i_limit = np.array(i_limit)
 
     # Feasible solution with better performance then reference design
-    indices = np.where(((b_limit == 1) * (n_limit == 1) * (q_limit == 1) * (f_limit == 1) * (tbr >= 1) * (Qs >= 10.0) * (taus >= 0.95) * (costs <= 1.0)) == 1)
+    indices = np.where(
+        (
+            (b_limit == 1)
+            * (n_limit == 1)
+            * (q_limit == 1)
+            * (f_limit == 1)
+            * (tbr >= 1.0)
+            * (Qs >= 10.0)
+            * (taus >= 0.95)
+            * (costs <= 1.0)
+        )
+        == 1
+    )
 
     if len(indices[0]) < 1:
+        print("No feasible solutions found.")
         return None
 
     feas_cost = np.array([result["cost"][idx] for idx in indices[0]])
