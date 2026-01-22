@@ -72,23 +72,23 @@ The figures below represent the comparison between original designed tokamak (le
 - Lawson criteria 
 <div>
     <p float = 'left'>
-        <img src="/results/lawson_comparison.png"  width="75%">
+        <img src="/results/compare/lawson_curve.png"  width="75%">
     </p>
 </div>
 
 - Overall performance (Left:reference, Right:PPO)
 <div>
     <p float = 'left'>
-        <img src="/results/project_overall.png"  width="47.5%">
-        <img src="/results/ppo_overall.png"  width="47.5%">
+        <img src="/results/design/benchmark/overall.png"  width="47.5%">
+        <img src="/results/design/crl/overall.png"  width="47.5%">
     </p>
 </div>
 
 - Design configuration (Left:reference, Right:PPO)
 <div>
     <p float = 'left'>
-        <img src="/results/project_poloidal_design.png"  width="47.5%">
-        <img src="/results/ppo_poloidal_design.png"  width="47.5%">
+        <img src="/results/design/benchmark/poloidal_design.png"  width="47.5%">
+        <img src="/results/design/crl/poloidal_design.png"  width="47.5%">
     </p>
 </div>
 
