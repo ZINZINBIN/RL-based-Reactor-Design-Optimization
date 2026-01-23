@@ -76,7 +76,7 @@ class DesignOptimizer:
 
 
 def evaluate_single_process(env:Environment, ctrl:Dict, objective:Callable, constraint:Callable):
-    state = env.step(ctrl)
+    state = env.step(ctrl, False)
     return objective(state), constraint(state), state
 
 def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):

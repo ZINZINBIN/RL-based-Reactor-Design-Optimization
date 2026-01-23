@@ -15,7 +15,7 @@ state_keys = state_space.keys()
 ctrl_keys_list = list(ctrl_keys)
 
 def evaluate_single_process(env:Environment, ctrl:Dict, objective:Callable, constraint:Callable):
-    state = env.step(ctrl)
+    state = env.step(ctrl, False)
     return objective(state), constraint(state), state
 
 def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
@@ -123,7 +123,6 @@ def search_param_space(
         traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
         traj_actions.append(action)
         traj_states.append(state)
-        
         
         best_scores.append(fs.max())
 

@@ -25,7 +25,7 @@ if __name__ == "__main__":
         tag = args['algorithm']
         config_path = os.path.join("./results", args['algorithm'], "optimal_config.pkl")
         config = read_design(config_path)
-    
+        
     filepath = os.path.join(args['save_dir'], tag)
 
     # directory
