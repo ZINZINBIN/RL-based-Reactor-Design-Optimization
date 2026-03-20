@@ -480,7 +480,7 @@ class Tokamak:
         self.source.update_eb(self.a, self.blanket_thickness, self.Rc)
 
     def update_p_avg(self):
-        
+
         fp = self.profile.compute_p_profile(65)[:-1] / self.profile.p_avg
         fT = self.profile.compute_T_profile(65)[:-1] / self.profile.T_avg
 
@@ -608,7 +608,7 @@ class Tokamak:
                 for p, T in zip(p_profile, T_profile)
             ]
         )
-        
+
         pt = np.sum(2 * rho * Sp_rho * drho)
         pt /= 1.6 * 10 ** (-19)
 
@@ -629,7 +629,7 @@ class Tokamak:
                 for p, T in zip(p_profile, T_profile)
             ]
         )
-        
+
         pt = np.sum(2 * rho * Sp_rho * drho)
         pt /= 1.6 * 10 ** (-19)
 
@@ -1111,9 +1111,7 @@ class Tokamak:
         print("| Aspect ratio : {:.3f}".format(self.epsilon))
         print("| Thermal efficiency : {:.3f}".format(self.thermal_efficiency))
         print("| Electric power : {:.3f} MW".format(self.electric_power / 10**6))
-        print(
-            "| Thermal power : {:.3f} MW".format(self.compute_thermal_power() / 10**6)
-        )
+        print("| Thermal power : {:.3f} MW".format(self.compute_thermal_power() / 10**6))
         print("| TBR : {:.3f}".format(self.compute_TBR()))
         print("| beta : {:.3f}".format(self.compute_beta() * 100))
         print("| tau : {:.3f} s".format(self.compute_confinement_time()))
@@ -1126,6 +1124,7 @@ class Tokamak:
         print("| n_avg : {:.2f}x10^20 #/m^3".format(self.profile.n_avg / 10**20))
         print("| p_avg : {:.2f} atm".format(self.profile.p_avg / (1.0 * 10**5)))
         print("| Q : {:.2f}".format(self.compute_Q()))
+        print("| H : {:.3f} ".format(self.H))
 
         beta = self.compute_beta()
         beta_troyon = self.compute_troyon_beta()
@@ -1192,17 +1191,9 @@ class Tokamak:
                 f.write("\n| Magnetic field : {:.3f} T".format(self.B0))
                 f.write("\n| Elongation : {:.3f}".format(self.k))
                 f.write("\n| Aspect ratio : {:.3f}".format(self.epsilon))
-                f.write(
-                    "\n| Thermal efficiency : {:.3f}".format(self.thermal_efficiency)
-                )
-                f.write(
-                    "\n| Electric power : {:.3f} MW".format(self.electric_power / 10**6)
-                )
-                f.write(
-                    "\n| Thermal power : {:.3f} MW".format(
-                        self.compute_thermal_power() / 10**6
-                    )
-                )
+                f.write("\n| Thermal efficiency : {:.3f}".format(self.thermal_efficiency))
+                f.write("\n| Electric power : {:.3f} MW".format(self.electric_power / 10**6))
+                f.write("\n| Thermal power : {:.3f} MW".format(self.compute_thermal_power() / 10**6))
                 f.write("\n| TBR : {:.3f}".format(self.compute_TBR()))
                 f.write("\n| beta : {:.3f}".format(self.compute_beta() * 100))
                 f.write("\n| tau : {:.3f} s".format(self.compute_confinement_time()))
@@ -1223,32 +1214,13 @@ class Tokamak:
                     "\n| p_avg : {:.2f} atm".format(self.profile.p_avg / (1.0 * 10**5))
                 )
                 f.write("\n| Q : {:.2f}".format(self.compute_Q()))
+                f.write("\n| H : {:.3f}".format(self.H))
                 f.write("\n=============== Operation limit ================")
-                f.write(
-                    "\n| Greenwald density : {:.3f}, operation density : {:.3f} | {}".format(
-                        ng, n, n_check
-                    )
-                )
-                f.write(
-                    "\n| q-kink : {:.3f}, operation q : {:.3f} | {}".format(
-                        q_kink, q, q_check
-                    )
-                )
-                f.write(
-                    "\n| Troyon beta : {:.3f}, operation beta : {:.3f} | {}".format(
-                        beta_troyon, beta * 100, b_check
-                    )
-                )
-                f.write(
-                    "\n| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | {}".format(
-                        f_NC, f_bs, bs_check
-                    )
-                )
-                f.write(
-                    "\n| Lawson nTau : {:.3f} , operation n*Tau: {:.3f} | {}".format(
-                        n_tau_criteria, n_tau, ignition_check
-                    )
-                )
+                f.write("\n| Greenwald density : {:.3f}, operation density : {:.3f} | ratio: {:.3f} | {}".format(ng, n, n / ng, n_check))
+                f.write("\n| q-kink : {:.3f}, operation q : {:.3f} | ratio: {:.3f} | {}".format(q_kink, q, q_kink/q, q_check))
+                f.write("\n| Troyon beta : {:.3f}, operation beta : {:.3f} | ratio: {:.3f} | {}".format(beta_troyon, beta * 100, beta * 100 / beta_troyon, b_check))
+                f.write("\n| Neoclassical f_bs : {:.3f}, operation f_bs : {:.3f} | ratio: {:.3f} | {}".format(f_NC, f_bs, f_bs / f_NC, bs_check))
+                f.write("\n| Lawson nTau : {:.3f} , operation n*Tau: {:.3f} | {}".format(n_tau_criteria, n_tau, ignition_check))
                 f.write("\n| Cost params : {:.3f}".format(self.compute_cost_params()))
                 f.write("\n================================================")
 
@@ -1300,7 +1272,7 @@ class Tokamak:
         q_limit_origin = result["q_kink"] / result["q"]
         b_limit_origin = result["beta"] / result["beta_troyon"]
 
-        fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+        fig, axes = plt.subplots(2, 2, figsize=(8, 8))
         axes = axes.ravel()
 
         n_points = 200
@@ -1477,4 +1449,4 @@ class Tokamak:
 
         # save file
         fig.tight_layout()
-        plt.savefig(filename)
+        plt.savefig(filename, dpi = 120)

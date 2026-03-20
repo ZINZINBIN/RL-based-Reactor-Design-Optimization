@@ -33,6 +33,7 @@
 | n_avg : 1.43x10^20 #/m^3
 | p_avg : 7.67 atm
 | Q : 10.38
+| H : 1.000
 =============== Operation limit ================
 | Greenwald density : 2.547, operation density : 1.426 | O
 | q-kink : 2.000, operation q : 1.554 | X

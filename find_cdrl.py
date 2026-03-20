@@ -15,19 +15,19 @@ def parsing():
     parser = argparse.ArgumentParser(description="Tokamak design optimization based on constrained reinforcement learning algorithm")
 
     # Setup
-    parser.add_argument("--num_episode", type=int, default=10000)
+    parser.add_argument("--num_episode", type=int, default=5000)
     parser.add_argument("--sample_size", type=int, default=1000)
     parser.add_argument("--verbose", type=int, default=100)
     parser.add_argument("--n_proc", type=int, default=4)
-
     parser.add_argument("--buffer_size", type=int, default=5)
     parser.add_argument("--mlp_dim", type=int, default=64)
     parser.add_argument("--std", type=float, default=0.50)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--lr_lamda", type=float, default=2e-4)
-    parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--gamma", type=float, default=0.995)
     parser.add_argument("--eps_clip", type=float, default=0.2)
-    parser.add_argument("--entropy_coeff", type=float, default=0.1)
+    parser.add_argument("--entropy_coeff", type=float, default=0.05) # 0.1
+    parser.add_argument("--use_file", type=bool, default=False)
 
     # directory
     parser.add_argument("--save_dir", type=str, default="./results/crl")
@@ -133,37 +133,42 @@ if __name__ == "__main__":
     policy_network = ActorCritic(input_dim = 21, mlp_dim = args['mlp_dim'], n_actions = 9, std = args['std'])
     policy_optimizer = torch.optim.RMSprop(policy_network.parameters(), lr = args['lr'])
 
-    log_lamda = torch.nn.Parameter(torch.log(torch.tensor([1.0, 1.0, 1.0, 1.0, 1.0])), requires_grad=True)
-    lamda_optimizer = torch.optim.SGD([log_lamda], lr=args["lr_lamda"])
+    log_lamda = torch.nn.Parameter(torch.log(torch.tensor([1.0,1.0,1.0,1.0,1.0])), requires_grad=True)
+    lamda_optimizer = torch.optim.RMSprop([log_lamda], lr=args["lr_lamda"])
 
     # Design optimization
     print("============ Design optimization ============")
-    result = search_param_space(
-        env,
-        objective,
-        constraint,
-        memory,
-        policy_network,
-        policy_optimizer,
-        log_lamda,
-        lamda_optimizer,
-        criterion,
-        args['gamma'],
-        args['eps_clip'],
-        args['entropy_coeff'],
-        "cpu",
-        None,
-        None,
-        args['num_episode'],
-        args['verbose'],
-        args["n_proc"],
-        args['sample_size']
-    )
 
-    with open(save_result, "wb") as file:
-        pickle.dump(result, file)
+    if not args['use_file']:
+        result = search_param_space(
+            env,
+            objective,
+            constraint,
+            memory,
+            policy_network,
+            policy_optimizer,
+            log_lamda,
+            lamda_optimizer,
+            criterion,
+            args['gamma'],
+            args['eps_clip'],
+            args['entropy_coeff'],
+            "cpu",
+            None,
+            None,
+            args['num_episode'],
+            args['verbose'],
+            args["n_proc"],
+            args['sample_size']
+        )
+
+        with open(save_result, "wb") as file:
+            pickle.dump(result, file)
+    else:
+        with open(save_result, "rb") as file:
+            result = pickle.load(file)
 
     optimal = find_optimal_design(result)
-    
+
     if optimal is not None:
         save_design(optimal, args["save_dir"], "optimal_config.pkl")

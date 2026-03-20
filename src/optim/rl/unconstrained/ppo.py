@@ -191,7 +191,7 @@ def update_policy(
     reward_batch = torch.cat(batch.reward).float().to(device)
 
     # Normalizing reward
-    reward_batch = (reward_batch - reward_batch.mean()) / (reward_batch.std() + 1e-6)
+    # reward_batch = (reward_batch - reward_batch.mean()) / (reward_batch.std() + 1e-6)
 
     policy_optimizer.zero_grad()
 
@@ -217,8 +217,8 @@ def update_policy(
 
 # Evaluation of the design performance
 def evaluate_single_process(env:Environment, ctrl:Dict, objective:Callable, constraint:Callable):
-    state = env.step(ctrl)
-    return objective(state, discretized=False), constraint(state, discretized = False), state
+    state = env.step(ctrl, save = False)
+    return objective(state, discretized=False), constraint(state), state
 
 # batch-evaluation of the design performance for multi-core process
 def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
@@ -286,7 +286,7 @@ def search_param_space(
     reward = torch.from_numpy(fs).reshape(-1).to(device)
 
     # Normalization
-    reward = (reward - reward.mean()) / (reward.std() + 1e-6)
+    # reward = (reward - reward.mean()) / (reward.std() + 1e-6)
 
     init_state = policy_network._dict2arr(env.init_state, state_space.keys())
     init_state_tensor = torch.from_numpy(init_state).unsqueeze(0).float().repeat(len(reward),1)
@@ -298,7 +298,7 @@ def search_param_space(
     pred_action_tensor, _, _, _ = policy_network.sample(init_state_tensor.to(device))
 
     l2 = torch.sum((action_tensor - pred_action_tensor) ** 2, dim = 1)
-    weighted_l2 = torch.sum(reward * l2) * (-1)
+    weighted_l2 = torch.sum(reward * l2) # * (-1)
 
     policy_optimizer.zero_grad()
     weighted_l2.backward()
@@ -330,7 +330,11 @@ def search_param_space(
     for i_episode in tqdm(range(num_episode)):
 
         # Method 1. reference design as constant input
-        state = env.init_state
+        if env.current_state is None:
+            state = env.init_state
+        else:
+            state = env.current_state
+        
         state_tensor = policy_network._dict2arr(state, state_space.keys())
         state_tensor = torch.from_numpy(state_tensor).unsqueeze(0).float()
 
@@ -347,7 +351,7 @@ def search_param_space(
         if state_new is None:
             continue
 
-        f, g = objective(state_new, discretized=False), constraint(state_new, discretized = False)
+        f, g = objective(state_new, discretized=False), constraint(state_new)
 
         reward_list.append(f)
         reward = torch.tensor([f])

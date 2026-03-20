@@ -56,6 +56,9 @@ class DesignOptimizer:
     def update(self):
         self.optim.update_v()
         self.optim.update_x()
+        
+    def explore(self):
+        self.optim.add_noise()
     
     def register_batch(self, states:List[Dict], ctrls:List[Dict], fs:np.ndarray, gs:np.ndarray):
         
@@ -89,7 +92,9 @@ def search_param_space(
     num_episode: int = 10000,
     verbose: int = 100,
     n_proc:int = 4,
+    n_update:int = 5,
     n_particles: int = 128,
+    sample_size:int = 1000,
     w: float = 0.7,
     c1: float = 1.5,
     c2: float = 1.5,
@@ -107,7 +112,10 @@ def search_param_space(
     traj_costs = []
     traj_Qs = []
 
-    f_obj = lambda x : objective(env.step(arr2dict(x, ctrl_keys_list), save = False), discretized=False)
+    if n_proc == -1:
+        n_proc = cpu_count()
+
+    f_obj = lambda x : objective(env.step(arr2dict(x, ctrl_keys_list), save = False))
 
     # Particle swarm optimizer
     optimizer = DesignOptimizer(f_obj, n_particles, w, c1, c2)
@@ -122,19 +130,19 @@ def search_param_space(
 
         mu = 0.5 * (p_min + p_max)
         sig = (p_max - p_min) * 0.5
-        sample = mu + sig * np.random.randn(n_particles)
+        sample = mu + sig * np.random.randn(sample_size)
         init_params[param] = np.clip(sample, p_min, p_max)
 
     ctrls = []
 
-    for idx in range(n_particles):
+    for idx in range(sample_size):
         ctrl = {}
         for key in search_space.keys():
             ctrl[key] = init_params[key][idx]
         ctrls.append(ctrl)
 
-    batch_size = n_particles // n_proc
-    batch_ctrls = [ctrls[i : i + batch_size] for i in range(0, n_particles, batch_size)]
+    batch_size = sample_size // n_proc
+    batch_ctrls = [ctrls[i : i + batch_size] for i in range(0, sample_size, batch_size)]
 
     evals_batches = Parallel(n_jobs=n_proc)(
         delayed(evaluate_batch)(env, batch, objective, constraint)
@@ -147,14 +155,36 @@ def search_param_space(
     fs = np.array(fs)
     gs = np.array(gs)
 
+    # Save offline stage
+    for state, action, g in zip(states, ctrls, gs):
+        traj_states.append(state)
+        traj_actions.append(action)
+        traj_b_limits.append(g[0])
+        traj_q_limits.append(g[1])
+        traj_n_limits.append(g[2])
+        traj_f_limits.append(g[3])
+        traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
+        traj_costs.append(state["cost"])
+        traj_Qs.append(state["Q"])
+        traj_taus.append(state["tau"])
+
+    # Select n_particles best samples
+    selected_indices = np.random.choice(np.arange(len(fs)), size=n_particles, replace=False)
+    states, ctrls, fs, gs = [states[idx] for idx in selected_indices], [ctrls[idx] for idx in selected_indices], fs[selected_indices], gs[selected_indices]
+
     # Register initial samples to the optimizer
     optimizer.register_batch(states, ctrls, fs, gs)
 
-    # update particle
-    optimizer.update()
+    # Redefine batch size for online optimization
+    batch_size = n_particles // n_proc
 
     # Step 2. Online optimization and suggestion of the design parameters
     for i_episode in tqdm(range(num_episode)):
+
+        if i_episode % n_update == 0:    
+            optimizer.update()
+        else:
+            optimizer.explore()
 
         ctrls = optimizer.extract_batch()
         batch_ctrls = [ctrls[i : i + batch_size] for i in range(0, n_particles, batch_size)]
@@ -166,32 +196,13 @@ def search_param_space(
         fs = np.array(fs)
         gs = np.array(gs)
 
-        '''
-        # Method 01. save all state
-        for state, action, g in zip(states, ctrls, gs):
+        # Method 02. select the state
+        idx = np.random.randint(n_particles)
 
-            if state is None:
-                continue
+        state = states[idx]
+        g = gs[idx]
+        action = ctrls[idx]
 
-            else:
-                traj_states.append(state)
-                traj_actions.append(action)
-                traj_b_limits.append(g[0])
-                traj_q_limits.append(g[1])
-                traj_n_limits.append(g[2])
-                traj_f_limits.append(g[3])
-                traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
-                traj_costs.append(state["cost"])
-                traj_Qs.append(state["Q"])
-                traj_taus.append(state["tau"])
-        '''
-        # Method 02. save best state
-        idx_max = np.argmax(fs)
-        
-        state = states[idx_max]
-        g = gs[idx_max]
-        action = ctrls[idx_max]
-        
         traj_costs.append(state['cost'])
         traj_taus.append(state['tau'])
         traj_Qs.append(state['Q'])
@@ -202,12 +213,9 @@ def search_param_space(
         traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
         traj_actions.append(action)
         traj_states.append(state)
-        
+
         # Register evaluated samples to the optimizer
         optimizer.register_batch(states, ctrls, fs, gs)
-
-        # update particle
-        optimizer.update()
 
         if i_episode % verbose == 0:
             print(

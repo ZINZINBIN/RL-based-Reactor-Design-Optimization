@@ -41,7 +41,6 @@ class BayesianOptimizer:
             imp = mu - mu_sample_best - xi
             z = imp / (sig + 1e-9)
             ei = imp * norm.cdf(z) + sig * norm.pdf(z)
-            # ei[sig < 1e-9] = 0.0
 
         return ei
 
@@ -86,14 +85,11 @@ class BayesianOptimizer:
 
         # Method 01. normal distribution around the best sample
         mu = self.X_sample[np.argmax(self.Y_sample)]
-        std = (self.bounds[:, 1] - self.bounds[:, 0]) / 4.0
-        X_sample = np.clip(np.random.normal(mu, std, size=(self.n_restart, dim)), self.bounds[:, 0], self.bounds[:, 1])
-
-        # Method 02. uniform distribution
-        # X_sample = np.random.uniform(self.bounds[:, 0], self.bounds[:, 1], size = (self.n_restart, dim))
-
+        std = (self.bounds[:, 1] - self.bounds[:, 0]) * 0.5
+        
+        X_sample = np.clip(mu + std * np.random.randn(self.n_restart, dim), self.bounds[:, 0], self.bounds[:, 1])
         Y_sample = self._obj(X_sample)
-
+        
         idx = np.argmax(Y_sample)
         x_min = X_sample[idx]
         return x_min

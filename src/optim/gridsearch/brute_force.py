@@ -78,7 +78,6 @@ def search_param_space(
 def search_param_space_multi_cpu(
     search_param_space_single_process: Callable,
     num_episode: int = 10000,
-    n_grid: int = 32,
     n_proc:int = -1,
 ):
 

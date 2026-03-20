@@ -81,8 +81,8 @@ class DesignOptimizer:
 
 # Evaluation of the design performance
 def evaluate_single_process(env: Environment, ctrl: Dict, objective: Callable, constraint: Callable):
-    state = env.step(ctrl)
-    return objective(state, discretized=False), constraint(state, discretized = False), state
+    state = env.step(ctrl, save = False)
+    return objective(state), constraint(state), state
 
 # batch-evaluation of the design performance for multi-core process
 def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
@@ -97,6 +97,7 @@ def search_param_space(
     num_episode: int = 10000,
     verbose: int = 100,
     n_proc: int = -1,
+    n_update:int = 5,
     sample_size: int = 1024,
 ):
 
@@ -166,7 +167,7 @@ def search_param_space(
         ctrl = optimizer.suggest()
         state = env.step(ctrl)
 
-        f, g = objective(state, discretized=False), constraint(state, discretized=False)
+        f, g = objective(state), constraint(state)
 
         if state is None:
             continue
@@ -178,7 +179,8 @@ def search_param_space(
         optimizer.register(state, ctrl, f, g)
 
         # update the GP regressor for EI approximation
-        optimizer.update()
+        if i_episode % n_update == 0:
+            optimizer.update()
 
         if i_episode % verbose == 0:
             print(

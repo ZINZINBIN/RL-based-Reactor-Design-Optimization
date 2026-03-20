@@ -62,4 +62,4 @@ def constraint(state:Optional[Dict], discretized:bool = True):
         return np.array([is_b_limit, is_q_limit, is_n_limit, is_f_limit, is_i_limit])
 
     else:
-        return np.array([b_ratio, q_ratio, n_ratio, f_ratio, i_ratio])
+        return np.array([b_ratio, q_ratio, n_ratio, f_ratio, i_ratio]) * (-1) + 1

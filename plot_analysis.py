@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from src.analysis.plot import (
     plot_scatter_feasibility,
     plot_lawson_curve,
-    temperal_average,
+    temperal_average
 )
 from src.optim.util import objective
 
@@ -13,7 +13,6 @@ datapaths = [
     "./results/genetic/params_search.pkl",
     "./results/particle/params_search.pkl",
     "./results/bayesian/params_search.pkl",
-    "./results/rl/params_search.pkl",
     "./results/crl/params_search.pkl",
 ]
 
@@ -22,13 +21,11 @@ savepaths = [
     "./results/genetic/",
     "./results/particle/",
     "./results/bayesian/",
-    "./results/rl/",
     "./results/crl/",
 ]
 
-tags = ["Gridsearch", "Genetic", "Particle", "Bayesian", "RL", "CRL"]
-
-clrs = ["r", "g", "m", "b", "k", "c"]
+tags = ["GS", "GA", "PSO", "BO", "DRL"]
+clrs = ["r", "g", "m", "b", "k"]
 
 status_list = []
 
@@ -39,7 +36,9 @@ for savepath, datapath, tag, clr in zip(savepaths, datapaths, tags, clrs):
 
     tau = np.array([comp["tau"] for comp in result["state"]])
     cost = np.array([comp["cost"] for comp in result["state"]])
-    
+
+    beta = np.array([comp["beta"] for comp in result["state"]])
+
     b_limit = result["b_limit"]
     q_limit = result["q_limit"]
     n_limit = result["n_limit"]
@@ -63,9 +62,10 @@ for savepath, datapath, tag, clr in zip(savepaths, datapaths, tags, clrs):
             * (q_limit == 1)
             * (f_limit == 1)
             * (tbr >= 1)
-            * (Qs > 10.0)
+            * (Qs > 10.38)
             * (tau >= 0.95)
             * (cost <= 1.0)
+            * (beta <= 5.0)
         )
         == 1
     )
@@ -73,7 +73,7 @@ for savepath, datapath, tag, clr in zip(savepaths, datapaths, tags, clrs):
     feasb_ratio = 100 * len(indices[0]) / len(tau)
 
     if len(indices[0]) == 0:
-        print("No feasible solutions found.")
+        print("{}: No feasible solutions found.".format(tag))
         continue
 
     # The minimum cost case
@@ -82,6 +82,7 @@ for savepath, datapath, tag, clr in zip(savepaths, datapaths, tags, clrs):
     arg_min = np.argmin(feasb_cost)
     arg_min = indices[0][arg_min]
 
+    # .png file
     fig, axes = plot_scatter_feasibility(
         result,
         yparam="cost",
@@ -96,6 +97,38 @@ for savepath, datapath, tag, clr in zip(savepaths, datapaths, tags, clrs):
         ylabel=r"$\tau_E$",
         ylims=[0.75, 1.25],
         filename=os.path.join(savepath, "feasibility_tau.png"),
+    )
+
+    fig, axes = plot_scatter_feasibility(
+        result,
+        yparam="Q",
+        ylabel=r"$Q$",
+        ylims=[8.0, 12.00],
+        filename=os.path.join(savepath, "feasibility_Q.png"),
+    )
+
+    fig, axes = plot_scatter_feasibility(
+        result,
+        yparam="cost",
+        ylabel="cost",
+        ylims=[0.75, 1.25],
+        filename=os.path.join(savepath, "feasibility_cost.pdf"),
+    )
+
+    fig, axes = plot_scatter_feasibility(
+        result,
+        yparam="tau",
+        ylabel=r"$\tau_E$",
+        ylims=[0.75, 1.25],
+        filename=os.path.join(savepath, "feasibility_tau.pdf"),
+    )
+
+    fig, axes = plot_scatter_feasibility(
+        result,
+        yparam="Q",
+        ylabel=r"$Q$",
+        ylims=[8.0, 12.00],
+        filename=os.path.join(savepath, "feasibility_Q.pdf"),
     )
 
     # save status
@@ -121,8 +154,17 @@ for savepath, datapath, tag, clr in zip(savepaths, datapaths, tags, clrs):
 
 
 # Lawson curve
+# .png
 plot_lawson_curve(
     filename="./results/compare/lawson_curve.png",
+    status_list=status_list,
+    xlims=[7.5, 25.0],
+    ylims=[0, 8.0],
+)
+
+# .pdf
+plot_lawson_curve(
+    filename="./results/compare/lawson_curve.pdf",
     status_list=status_list,
     xlims=[7.5, 25.0],
     ylims=[0, 8.0],
@@ -150,7 +192,7 @@ with open("./results/compare/design_spec.txt", "w") as f:
 
     f.write("\n")
     f.write("\n================ Energy gain Q ==================\n")
-    f.write("\nRef: {:.3f}".format(10.0))
+    f.write("\nRef: {:.3f}".format(10.380))
 
     for status in status_list:
         tag = status["tag"]
@@ -169,16 +211,16 @@ y_min = 0.0
 y_max = 5.0
 
 # temperal average
-k = 128
+k = 512
 
 # plot the curve
-fig = plt.figure(figsize=(6, 5))
+fig = plt.figure(figsize=(5, 4))
 clr = plt.cm.Purples(0.9)
 
 for c, status in zip(clrs, status_list):
 
     tag = status["tag"]
-    reward = [objective(state) for state in status["state"]]
+    reward = [objective(state, discretized = False) for state in status["state"]]
     episode = np.array(range(1, len(reward) + 1, 1))
 
     reward = np.clip(reward, a_min=y_min, a_max=y_max)
@@ -186,9 +228,141 @@ for c, status in zip(clrs, status_list):
 
     plt.plot(episode, reward_mean, c=c, label=tag)
 
-plt.xlabel("Episodes")
-plt.ylabel(r"$\bar{R}(s_t)$")
-plt.ylim([0.9, 1.75])
-plt.legend(loc="upper right")
+plt.xlabel("Iteration")
+plt.ylabel(r"$<R_{\text{total}}>$")
+plt.legend(loc="upper left")
 fig.tight_layout()
+
+# .png file
 plt.savefig("./results/compare/optimization_process.png", dpi=120)
+
+# .pdf file
+plt.savefig("./results/compare/optimization_process.pdf", dpi=120)
+plt.close()
+
+# Feasibility as evaluation
+fig = plt.figure(figsize=(5, 4))
+clr = plt.cm.Purples(0.9)
+
+for c, status in zip(clrs, status_list):
+
+    tag = status["tag"]
+    feasb_score = [objective(state, [0,0,0], discretized = False) for state in status["state"]]
+    episode = np.array(range(1, len(reward) + 1, 1))
+
+    feasb_score, _, _ = temperal_average(feasb_score, k)
+    plt.plot(episode, feasb_score, c=c, label=tag)
+
+plt.xlabel("Iteration")
+plt.ylabel(r"$<-\lambda \cdot C(s_t)>$")
+plt.legend(loc="upper left")
+fig.tight_layout()
+
+# .png file
+plt.savefig("./results/compare/optimization_process_feasibility.png", dpi=120)
+
+# .pdf file
+plt.savefig("./results/compare/optimization_process_feasibility.pdf", dpi=120)
+plt.close()
+
+# plot the partial reward curve (tau, cost, Q)
+fig, axes = plt.subplots(1, 3, figsize = (15, 4), sharex=True)
+axes = axes.ravel()
+clr = plt.cm.Purples(0.9)
+
+for c, status in zip(clrs, status_list):
+
+    tag = status["tag"]
+
+    reward_tau = [objective(state, [1,0,0], [0,0,0,0,0]) for state in status["state"]]
+    reward_cost = [objective(state, [0,1,0], [0,0,0,0,0]) for state in status["state"]]
+    reward_Q = [objective(state, [0,0,1], [0,0,0,0,0]) for state in status["state"]]
+
+    episode = np.array(range(1, len(reward) + 1, 1))
+
+    reward_tau = np.clip(reward_tau, a_min=y_min, a_max=y_max)
+    reward_cost = np.clip(reward_cost, a_min=y_min, a_max=y_max)
+    reward_Q = np.clip(reward_Q, a_min=y_min, a_max=y_max)
+
+    reward_tau, _, _ = temperal_average(reward_tau, k)
+    reward_cost, _, _ = temperal_average(reward_cost, k)
+    reward_Q, _, _ = temperal_average(reward_Q, k)
+
+    axes[0].plot(episode, reward_tau, c=c, label=tag)
+    axes[1].plot(episode, reward_cost, c=c, label=tag)
+    axes[2].plot(episode, reward_Q, c=c, label=tag)
+
+axes[0].set_xlabel("Iteration")
+axes[1].set_xlabel("Iteration")
+axes[2].set_xlabel("Iteration")
+
+axes[0].set_ylabel(r"$<R_{tau}>$")
+axes[1].set_ylabel(r"$<R_{cost}>$")
+axes[2].set_ylabel(r"$<R_{Q}>$")
+
+axes[0].legend(loc="upper left")
+axes[1].legend(loc="upper left")
+axes[2].legend(loc="upper left")
+fig.tight_layout()
+
+# .png file
+plt.savefig("./results/compare/optimization_process_partial.png", dpi=120)
+
+# .pdf file
+plt.savefig("./results/compare/optimization_process_partial.pdf", dpi=120)
+plt.close()
+
+# plot the partial penalty terms
+fig, axes = plt.subplots(2, 2, figsize = (10, 8), sharex=True)
+axes = axes.ravel()
+clr = plt.cm.Purples(0.9)
+
+for c, status in zip(clrs, status_list):
+
+    tag = status["tag"]
+
+    # beta / Kink / Greenwald / Bootstrap
+    reward_b = [objective(state, [0,0,0], [1,0,0,0,0]) for state in status["state"]]
+    reward_q = [objective(state, [0,0,0], [0,1,0,0,0]) for state in status["state"]]
+    reward_n = [objective(state, [0,0,0], [0,0,1,0,0]) for state in status["state"]]
+    reward_f = [objective(state, [0,0,0], [0,0,0,1,0]) for state in status["state"]]
+
+    episode = np.array(range(1, len(reward) + 1, 1))
+
+    reward_b = np.clip(reward_b, a_min=y_min, a_max=y_max)
+    reward_q = np.clip(reward_q, a_min=y_min, a_max=y_max)
+    reward_n = np.clip(reward_n, a_min=y_min, a_max=y_max)
+    reward_f = np.clip(reward_f, a_min=y_min, a_max=y_max)
+
+    reward_b, _, _ = temperal_average(reward_b, k)
+    reward_q, _, _ = temperal_average(reward_q, k)
+    reward_n, _, _ = temperal_average(reward_n, k)
+    reward_f, _, _ = temperal_average(reward_f, k)
+
+    axes[0].plot(episode, reward_b, c=c, label=tag)
+    axes[1].plot(episode, reward_q, c=c, label=tag)
+    axes[2].plot(episode, reward_n, c=c, label=tag)
+    axes[3].plot(episode, reward_f, c=c, label=tag)
+
+axes[0].set_xlabel("Iteration")
+axes[1].set_xlabel("Iteration")
+axes[2].set_xlabel("Iteration")
+axes[3].set_xlabel("Iteration")
+
+axes[0].set_ylabel(r"$-C_{\beta}$")
+axes[1].set_ylabel(r"$-C_{q}$")
+axes[2].set_ylabel(r"$-C_{G}$")
+axes[3].set_ylabel(r"$-C_{\text{bs}}$")
+
+axes[0].legend(loc="upper left")
+axes[1].legend(loc="upper left")
+axes[2].legend(loc="upper left")
+axes[3].legend(loc="upper left")
+fig.tight_layout()
+
+# .png file
+plt.savefig("./results/compare/optimization_process_feasibility_partial.png", dpi=120)
+
+# .pdf file
+plt.savefig("./results/compare/optimization_process_feasibility_partial.pdf", dpi=120)
+plt.close()

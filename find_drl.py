@@ -15,7 +15,7 @@ def parsing():
     parser = argparse.ArgumentParser(description="Tokamak design optimization based on reinforcement learning algorithm")
 
     # Setup
-    parser.add_argument("--num_episode", type=int, default=10000)
+    parser.add_argument("--num_episode", type=int, default=5000)
     parser.add_argument("--sample_size", type=int, default=1000)
     parser.add_argument("--verbose", type=int, default=100)
     parser.add_argument("--n_proc", type=int, default=4)
@@ -24,9 +24,9 @@ def parsing():
     parser.add_argument("--mlp_dim", type=int, default=64)
     parser.add_argument("--std", type=float, default=0.50)
     parser.add_argument("--lr", type=float, default=2e-4)
-    parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--gamma", type=float, default=0.995)
     parser.add_argument("--eps_clip", type=float, default=0.2)
-    parser.add_argument("--entropy_coeff", type=float, default=0.1)
+    parser.add_argument("--entropy_coeff", type=float, default=0.05) # 0.1
 
     # directory
     parser.add_argument("--save_dir", type=str, default="./results/rl")

@@ -33,7 +33,10 @@ class ParticleSwarmOptimizer:
 
         for _ in range(self.n_ptls):
             x = np.random.uniform(self.bounds[:,0], self.bounds[:,1], size=dims)
-            v = np.random.uniform(-1, 1, dims)
+
+            dv = 0.5 * (self.bounds[:,1] - self.bounds[:,0])
+            v = np.random.uniform(-dv, dv, dims) * 0.5
+
             f = self.obj(x)
             ptl = Particle(x, v, f)
 
@@ -93,12 +96,12 @@ class ParticleSwarmOptimizer:
                     self.global_best_f = ptl.f
 
     def update_x(self):
-        
+
         for ptl in self.ptls:
             ptl.x = np.clip(ptl.x + ptl.v, self.bounds[:,0], self.bounds[:,1])
 
     def update_v(self):
-        
+
         for ptl in self.ptls:
 
             r1 = np.random.rand(len(ptl.x))
@@ -108,6 +111,13 @@ class ParticleSwarmOptimizer:
             social = self.c2 * r2 * (self.global_best_x - ptl.x)
 
             ptl.v = self.w * ptl.v + cognitive + social
+
+    def add_noise(self):
+
+        for ptl in self.ptls:
+            ptl.x += np.random.randn() * (self.bounds[:,1] - self.bounds[:,0]) * 0.1
+            ptl.v += np.random.randn() * (self.bounds[:, 1] - self.bounds[:, 0]) * 0.1
+            ptl.x = np.clip(ptl.x, self.bounds[:, 0], self.bounds[:, 1])
 
 if __name__ == "__main__":
 

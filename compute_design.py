@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
     # save file
     tokamak.print_info(os.path.join(filepath, "stat.txt"))
-    tokamak.print_profile(os.path.join(filepath, "profile.png"))
-    tokamak.print_design_configuration(os.path.join(filepath, "poloidal_design.png"))
-    tokamak.print_lawson_criteria(os.path.join(filepath, "lawson.png"))
-    tokamak.print_overall_performance(os.path.join(filepath, "overall.png"))
+    tokamak.print_profile(os.path.join(filepath, "profile.pdf"))
+    tokamak.print_design_configuration(os.path.join(filepath, "poloidal_design.pdf"))
+    tokamak.print_lawson_criteria(os.path.join(filepath, "lawson.pdf"))
+    tokamak.print_overall_performance(os.path.join(filepath, "overall.pdf"))

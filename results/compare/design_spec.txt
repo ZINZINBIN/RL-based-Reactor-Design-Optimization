@@ -6,38 +6,34 @@
 ==================== Cost ======================
 
 Ref: 1.003
-Gridsearch: 0.815
-Genetic: 0.775
-Particle: 0.881
-Bayesian: 0.881
-RL: 0.857
-CRL: 0.857
+GS: 0.848
+GA: 0.838
+PSO: 0.902
+BO: 0.822
+DRL: 0.858
 
 ================ Confinement ====================
 
 Ref: 0.944
-Gridsearch: 1.054
-Genetic: 1.097
-Particle: 1.051
-Bayesian: 1.106
-RL: 1.071
-CRL: 1.071
+GS: 1.035
+GA: 1.078
+PSO: 1.078
+BO: 1.078
+DRL: 1.084
 
 ================ Energy gain Q ==================
 
-Ref: 10.000
-Gridsearch: 10.455
-Genetic: 11.867
-Particle: 10.231
-Bayesian: 11.801
-RL: 11.239
-CRL: 11.238
+Ref: 10.380
+GS: 10.394
+GA: 10.958
+PSO: 11.017
+BO: 10.872
+DRL: 10.997
 
 ======== Feasible solutions percentage ==========
 
-Gridsearch: 0.82
-Genetic: 99.85
-Particle: 3.73
-Bayesian: 3.05
-RL: 6.72
-CRL: 6.71
+GS: 0.62
+GA: 3.00
+PSO: 1.78
+BO: 5.66
+DRL: 11.00

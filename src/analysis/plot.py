@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from src.design.lawson import Lawson
 from src.config.search_space_info import search_space, state_space
 from typing import Optional, List, Dict, Callable
+from scipy.signal import savgol_filter
 
 ctrl_param_name = list(search_space.keys())
 state_param_name = list(state_space.keys())
@@ -22,7 +23,7 @@ def temperal_average(Y: np.array, k: int):
 
         if idx_end >= maxlen:
             idx_end = maxlen - 1
-            
+
         if idx_start <0:
             idx_start = 0
 
@@ -31,6 +32,139 @@ def temperal_average(Y: np.array, k: int):
         Y_upper[i] = np.max(Y[idx_start:idx_end])
 
     return Y_mean, Y_lower, Y_upper
+
+
+def hampel_filter(y, window_size=15, n_sigmas=3.0, return_mask=False):
+    """
+    Hampel filter for 1D time series.
+    Flags points far from rolling median by n_sigmas * MAD, and replaces them with the median.
+
+    Parameters
+    ----------
+    y : array-like, shape (N,)
+        Time series values.
+    window_size : int
+        Half-window size on each side (total window = 2*window_size+1).
+    n_sigmas : float
+        Outlier threshold in robust sigmas.
+    return_mask : bool
+        If True, also return a boolean mask of detected outliers.
+
+    Returns
+    -------
+    y_filt : np.ndarray
+        Filtered series with outliers replaced.
+    outlier_mask : np.ndarray (optional)
+        True where an outlier was detected.
+    """
+    y = np.asarray(y, dtype=float)
+    n = y.size
+    y_filt = y.copy()
+    outlier_mask = np.zeros(n, dtype=bool)
+
+    # Scale factor: MAD -> robust std estimate for normal distribution
+    k = 1.4826
+
+    for i in range(n):
+        i0 = max(0, i - window_size)
+        i1 = min(n, i + window_size + 1)
+        window = y[i0:i1]
+
+        med = np.nanmedian(window)
+        mad = np.nanmedian(np.abs(window - med))
+
+        if mad == 0 or not np.isfinite(mad):
+            continue
+
+        robust_sigma = k * mad
+        if np.abs(y[i] - med) > n_sigmas * robust_sigma:
+            outlier_mask[i] = True
+            y_filt[i] = med
+
+    return (y_filt, outlier_mask) if return_mask else y_filt
+
+def remove_peak_targeted(t, y, *,
+                         hampel_half_window=30,
+                         n_sigmas=4.0,
+                         pad=20,
+                         smooth_window=81,
+                         smooth_poly=3):
+    """
+    Remove a localized peak from a single time series y(t) while keeping the rest intact.
+
+    Steps:
+      1) Light smooth -> baseline
+      2) Detect outliers in residual via Hampel-like rule (rolling median & MAD)
+      3) Expand detected region by 'pad' samples (captures full peak shoulders)
+      4) Replace that region by linear interpolation between boundary points
+      5) Optionally apply mild Savitzky-Golay to remove tiny kinks (blue only)
+
+    Parameters are in samples (not time units).
+    """
+
+    t = np.asarray(t, dtype=float)
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+
+    # --- (A) baseline for residual (light smoothing) ---
+    # Ensure odd window <= n
+    sw = min(smooth_window, n - (1 - n % 2))
+    if sw % 2 == 0:
+        sw -= 1
+    baseline = savgol_filter(y, window_length=sw, polyorder=min(smooth_poly, sw - 1))
+
+    resid = y - baseline
+
+    # --- (B) Hampel-style detection on residual ---
+    k = 1.4826  # MAD->sigma factor
+    outlier = np.zeros(n, dtype=bool)
+
+    for i in range(n):
+        i0 = max(0, i - hampel_half_window)
+        i1 = min(n, i + hampel_half_window + 1)
+        w = resid[i0:i1]
+
+        med = np.median(w)
+        mad = np.median(np.abs(w - med))
+        if mad <= 1e-14:
+            continue
+
+        sigma = k * mad
+        if np.abs(resid[i] - med) > n_sigmas * sigma:
+            outlier[i] = True
+
+    if not outlier.any():
+        # nothing detected; return lightly smoothed version (or original if you prefer)
+        return y.copy(), outlier
+
+    # --- (C) Expand region (so you remove the whole peak, not just a few points) ---
+    idx = np.where(outlier)[0]
+    left = max(0, idx[0] - pad)
+    right = min(n - 1, idx[-1] + pad)
+
+    y_fixed = y.copy()
+
+    # --- (D) Replace [left:right] by interpolation between boundaries ---
+    # pick boundary anchors just outside the replaced region
+    L = max(0, left - 1)
+    R = min(n - 1, right + 1)
+
+    if R <= L + 1:
+        return y.copy(), outlier  # degenerate case
+
+    # Fill the region using linear interpolation on the original y
+    fill_idx = np.arange(L, R + 1)
+    y_fixed[L:R + 1] = np.interp(fill_idx, [L, R], [y[L], y[R]])
+
+    # --- (E) Mild smoothing after fixing (keeps the overall shape) ---
+    sw2 = min(smooth_window, n - (1 - n % 2))
+    if sw2 % 2 == 0:
+        sw2 -= 1
+    y_final = savgol_filter(y_fixed, window_length=sw2, polyorder=min(smooth_poly, sw2 - 1))
+
+    # Important: keep the unmodified parts as close as possible to original.
+    # If you want *zero* smoothing outside the peak, comment out y_final above and return y_fixed.
+    return y_final, (left, right)
 
 def plot_loss_curve(
     loss_list:List, 
@@ -138,7 +272,7 @@ def plot_lawson_curve(
     n_tau_Q = [lawson.compute_n_tau_Q_lower_bound(t, n_rescale, B_rescale, psi, Q) * 10 ** (-20) for t in T]
     n_tau_break = [lawson.compute_n_tau_Q_lower_bound(t, n_rescale, B_rescale, psi, 1) * 10 ** (-20) for t in T]
 
-    fig, ax = plt.subplots(1,1, figsize = (8,6))
+    fig, ax = plt.subplots(1,1, figsize = (6,5))
     ax.plot(T, n_tau, "k", label = "Lawson criteria (Ignition)")
     ax.plot(T, n_tau_5, "r", label = "Lawson criteria (Q=5)")
     ax.plot(T, n_tau_Q, "b", label = "Lawson criteria (Q={})".format(Q))
@@ -168,6 +302,8 @@ def plot_lawson_curve(
 
     if filename is not None:
         plt.savefig(filename)
+    
+    plt.close()
 
     return fig, ax
 
@@ -218,9 +354,9 @@ def plot_scatter_feasibility(
     ys = np.array([comp[yparam] for comp in result["state"]])
 
     b_limits = np.array([comp["beta"] / comp["beta_troyon"] for comp in result["state"]])
-    q_limits = np.array([comp["q"] / comp["q_kink"] for comp in result["state"]])
+    q_limits = np.array([comp["q_kink"] / comp["q"] for comp in result["state"]])
     n_limits = np.array([comp["n"] / comp["n_g"] for comp in result["state"]])
-    f_limits = np.array([comp["f_NC"] / comp["f_BS"] for comp in result["state"]])
+    f_limits = np.array([comp["f_BS"] / comp["f_NC"] for comp in result["state"]])
 
     # feasible solutions
     feasb_b_limit = np.array(result["b_limit"])
@@ -236,23 +372,23 @@ def plot_scatter_feasibility(
     feasb_indices = np.where(((feasb_b_limit == 1) * (feasb_n_limit == 1) * (feasb_q_limit == 1) * (feasb_f_limit == 1) * (tbr >= 1) * (Qs > 10.0)) == 1)
     feasb_indices = feasb_indices[0].tolist()
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+    fig, axes = plt.subplots(2, 2, figsize=(8, 8))
     axes = axes.ravel()
 
-    yaxis = np.linspace(0.0, 2.0, 100)
+    yaxis = np.linspace(0.0, 20.0, 1000)
 
     axes[0].fill_betweenx(yaxis, 1, 5, facecolor="gray", alpha = 0.2)
     axes[0].scatter(b_limits, ys, s = 0.5)
     axes[0].scatter(b_limits[feasb_indices], ys[feasb_indices], c='r', s=0.75)
-    axes[0].set_xlabel(r"$\beta / \beta_{troyon}$")
+    axes[0].set_xlabel(r"$\beta / \beta_{Troyon}$")
     axes[0].set_ylabel(ylabel)
     axes[0].set_xlim([0,3.0])
     axes[0].set_ylim(ylims)
 
-    axes[1].fill_betweenx(yaxis, 0, 1, facecolor="gray", alpha=0.2)
+    axes[1].fill_betweenx(yaxis, 1, 5, facecolor="gray", alpha=0.2)
     axes[1].scatter(q_limits, ys, s=0.5)
     axes[1].scatter(q_limits[feasb_indices], ys[feasb_indices], c="r", s=0.75)
-    axes[1].set_xlabel(r"$q / q_{kink}$")
+    axes[1].set_xlabel(r"$q_{kink}/q$")
     axes[1].set_ylabel(ylabel)
     axes[1].set_xlim([0, 2.5])
     axes[1].set_ylim(ylims)
@@ -260,15 +396,15 @@ def plot_scatter_feasibility(
     axes[2].fill_betweenx(yaxis, 1, 5, facecolor="gray", alpha=0.2)
     axes[2].scatter(n_limits, ys, s=0.5)
     axes[2].scatter(n_limits[feasb_indices], ys[feasb_indices], c="r", s=0.75)
-    axes[2].set_xlabel(r"$n / n_g$")
+    axes[2].set_xlabel(r"$\bar{n} / n_G$")
     axes[2].set_ylabel(ylabel)
     axes[2].set_xlim([0, 3.0])
     axes[2].set_ylim(ylims)
 
-    axes[3].fill_betweenx(yaxis, 0, 1, facecolor="gray", alpha=0.2)
+    axes[3].fill_betweenx(yaxis, 1, 5, facecolor="gray", alpha=0.2)
     axes[3].scatter(f_limits, ys, s=0.5)
     axes[3].scatter(f_limits[feasb_indices], ys[feasb_indices], c="r", s=0.75)
-    axes[3].set_xlabel(r"$f_{NC} / f_{BS}$")
+    axes[3].set_xlabel(r"$f_{op} / f_{bs}$")
     axes[3].set_ylabel(ylabel)
     axes[3].set_xlim([0, 3.0])
     axes[3].set_ylim(ylims)
@@ -276,6 +412,8 @@ def plot_scatter_feasibility(
     fig.tight_layout()
 
     if filename is not None:
-        plt.savefig(filename)
+        plt.savefig(filename, dpi = 120)
+
+    plt.close()
 
     return fig, axes

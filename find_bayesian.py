@@ -17,13 +17,15 @@ def parsing():
     parser = argparse.ArgumentParser(description="Tokamak design optimization based on Bayesian Optimization")
 
     # Setup
-    parser.add_argument("--num_episode", type=int, default=10000)
+    parser.add_argument("--num_episode", type=int, default=5000)
     parser.add_argument("--sample_size", type=int, default=1000)
     parser.add_argument("--verbose", type=int, default=100)
     parser.add_argument("--n_proc", type=int, default=4)
-    parser.add_argument("--buffer_size", type=int, default=256)
+    parser.add_argument("--n_update", type=int, default=5)
+    parser.add_argument("--buffer_size", type=int, default=512) # 256
     parser.add_argument("--xi", type=float, default=0.01)
-    parser.add_argument("--n_restart", type=int, default=32)
+    parser.add_argument("--n_restart", type=int, default=16)
+    parser.add_argument("--use_file", type = bool, default = False)
 
     # directory
     parser.add_argument("--save_dir", type=str, default="./results/bayesian")
@@ -112,21 +114,28 @@ if __name__ == "__main__":
     kernel = ConstantKernel(1.0, (1e-2, 1e2)) * Matern(length_scale=1.0, nu=2.5)
     optimizer = DesignOptimizer(kernel, args['buffer_size'], args['xi'], args['n_restart'])
 
-    result = search_param_space(
-        env,
-        optimizer,
-        objective,
-        constraint,
-        args['num_episode'],
-        args['verbose'],
-        args['n_proc'],
-        args['sample_size']
-    )
+    if not args['use_file']:
 
-    with open(save_result, "wb") as file:
-        pickle.dump(result, file)
+        result = search_param_space(
+            env,
+            optimizer,
+            objective,
+            constraint,
+            args['num_episode'],
+            args['verbose'],
+            args['n_proc'],
+            args['n_update'],
+            args['sample_size']
+        )
+
+        with open(save_result, "wb") as file:
+            pickle.dump(result, file)
+
+    else:
+        with open(save_result, "rb") as file:
+            result = pickle.load(file)
 
     optimal = find_optimal_design(result)
-    
+
     if optimal is not None:
         save_design(optimal, args["save_dir"], "optimal_config.pkl")

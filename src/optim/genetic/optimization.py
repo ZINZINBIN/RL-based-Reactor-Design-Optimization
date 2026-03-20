@@ -16,7 +16,7 @@ ctrl_keys_list = list(ctrl_keys)
 
 def evaluate_single_process(env:Environment, ctrl:Dict, objective:Callable, constraint:Callable):
     state = env.step(ctrl, False)
-    return objective(state), constraint(state), state
+    return objective(state, discretized = True), constraint(state), state
 
 def evaluate_batch(env:Environment, ctrl_batch:List, objective:Callable, constraint:Callable):
     return [evaluate_single_process(env, ctrl, objective, constraint) for ctrl in ctrl_batch]
@@ -33,34 +33,11 @@ def search_param_space(
     mutation_sigma: float = 0.25,
     num_parents: int = 32,
     n_proc:int = -1,
+    n_update:int = 5,
+    sample_size:int = 1000,
 ):
 
     init_params = {}
-
-    # Gaussian sampling
-    for param in search_space.keys():
-        p_min = search_space[param][0]
-        p_max = search_space[param][1]
-
-        mu = 0.5 * (p_min + p_max)
-        sig = (p_max - p_min) * 0.5
-        sample = mu + sig * np.random.randn(pop_size)
-        init_params[param] = np.clip(sample, p_min, p_max)
-
-    combinations = []
-
-    for idx in range(pop_size):
-        ctrl = {}
-        for key in search_space.keys():
-            ctrl[key] = init_params[key][idx]
-        combinations.append(ctrl)
-
-    best_scores = []
-
-    if n_proc == -1:
-        n_proc = cpu_count()
-
-    batch_size = pop_size // n_proc
 
     # trajectory
     traj_actions = []
@@ -74,6 +51,59 @@ def search_param_space(
     traj_costs = []
     traj_Qs = []
 
+    if n_proc == -1:
+        n_proc = cpu_count()
+
+    # Gaussian sampling
+    for param in search_space.keys():
+        p_min = search_space[param][0]
+        p_max = search_space[param][1]
+
+        mu = 0.5 * (p_min + p_max)
+        sig = (p_max - p_min) * 0.5
+        sample = mu + sig * np.random.randn(sample_size)
+        init_params[param] = np.clip(sample, p_min, p_max)
+
+    combinations = []
+
+    for idx in range(sample_size):
+        ctrl = {}
+        for key in search_space.keys():
+            ctrl[key] = init_params[key][idx]
+        combinations.append(ctrl)
+
+    batch_size = sample_size // n_proc
+    batched_combination = [combinations[i:i+batch_size] for i in range(0, sample_size, batch_size)]
+
+    evals_batches = Parallel(n_jobs = n_proc)(delayed(evaluate_batch)(env, batch, objective, constraint) for batch in batched_combination)
+    evals = [item for sublist in evals_batches for item in sublist]
+    fs, gs, states = zip(*evals)
+
+    fs = np.array(fs)
+    gs = np.array(gs)
+
+    # Save offline stage
+    for state, action, g in zip(states, combinations, gs):
+        traj_states.append(state)
+        traj_actions.append(action)
+        traj_b_limits.append(g[0])
+        traj_q_limits.append(g[1])
+        traj_n_limits.append(g[2])
+        traj_f_limits.append(g[3])
+        traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
+        traj_costs.append(state["cost"])
+        traj_Qs.append(state["Q"])
+        traj_taus.append(state["tau"])
+
+    # Select random samples
+    selected_indices = np.random.choice(np.arange(len(fs)), size = pop_size, replace = False)
+    states, combinations, fs, gs = [states[idx] for idx in selected_indices], [combinations[idx] for idx in selected_indices], fs[selected_indices], gs[selected_indices]
+
+    best_scores = []
+
+    # Redefine batch size for online optimization
+    batch_size = pop_size // n_proc
+
     for i_episode in tqdm(range(num_episode)):
 
         # create population with multicore process
@@ -86,33 +116,13 @@ def search_param_space(
         fs = np.array(fs)
         gs = np.array(gs)
 
-        '''
-        # Method 01. save all state
-        for state, action, g in zip(states, combinations, gs):
-
-            if state is None:
-                continue
-
-            else:
-                traj_costs.append(state['cost'])
-                traj_taus.append(state['tau'])
-                traj_Qs.append(state['Q'])
-                traj_b_limits.append(g[0])
-                traj_q_limits.append(g[1])
-                traj_n_limits.append(g[2])
-                traj_f_limits.append(g[3])
-                traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
-                traj_actions.append(action)
-                traj_states.append(state)
-        '''
-                
-        # Method 02. save best state
-        idx_max = np.argmax(fs)
+        # Save selected state
+        idx = np.random.randint(pop_size)
         
-        state = states[idx_max]
-        g = gs[idx_max]
-        action = combinations[idx_max]
-        
+        state = states[idx]
+        g = gs[idx]
+        action = combinations[idx]
+
         traj_costs.append(state['cost'])
         traj_taus.append(state['tau'])
         traj_Qs.append(state['Q'])
@@ -123,11 +133,15 @@ def search_param_space(
         traj_i_limits.append(1 if state["n_tau"] / state["n_tau_lower"] > 1 else 0)
         traj_actions.append(action)
         traj_states.append(state)
-        
+
         best_scores.append(fs.max())
 
         # greedy selection
-        indice = np.argsort(fs)[-num_parents:]
+        if i_episode % n_update == 0:
+            indice = np.argsort(fs)[-num_parents:]
+        else:
+            indice = np.random.choice(np.arange(len(fs)), size = num_parents, replace=False)
+
         selected = [combinations[idx] for idx in indice]
 
         # cross-over to generate offspring
@@ -150,15 +164,14 @@ def search_param_space(
         # Mutation of the offspring
         for i in range(len(offspring)):
             if np.random.rand() < mutation_rate:
+                for key in ctrl_keys_list:
+                    p_min = search_space[key][0]
+                    p_max = search_space[key][1]
 
-                key = ctrl_keys_list[np.random.choice(len(ctrl_keys_list))]
-                p_min = search_space[key][0]
-                p_max = search_space[key][1]
+                    scale = (p_max - p_min) / 2
 
-                scale = (p_max - p_min) / 2
-
-                offspring[i][key] += scale * np.random.normal(0, mutation_sigma)
-                offspring[i][key] = np.clip(offspring[i][key], p_min, p_max)
+                    offspring[i][key] += scale * np.random.normal(0, mutation_sigma)
+                    offspring[i][key] = np.clip(offspring[i][key], p_min, p_max)
 
         # Concatenate the offspring and parent
         combinations = selected + offspring

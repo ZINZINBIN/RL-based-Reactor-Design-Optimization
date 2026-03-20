@@ -39,6 +39,7 @@ def find_optimal_design(result:Dict):
     taus = [comp["tau"] for comp in result["state"]]
     Qs = [comp["Q"] for comp in result["state"]]
     costs = [comp["cost"] for comp in result["state"]]
+    betas = [comp["beta"] for comp in result["state"]]
 
     b_limit = result["b_limit"]
     q_limit = result["q_limit"]
@@ -52,6 +53,7 @@ def find_optimal_design(result:Dict):
     taus = np.array(taus)
     Qs = np.array(Qs)
     costs = np.array(costs)
+    betas = np.array(betas)
     b_limit = np.array(b_limit)
     q_limit = np.array(q_limit)
     n_limit = np.array(n_limit)
@@ -66,9 +68,10 @@ def find_optimal_design(result:Dict):
             * (q_limit == 1)
             * (f_limit == 1)
             * (tbr >= 1.0)
-            * (Qs >= 10.0)
+            * (Qs >= 10.38)
             * (taus >= 0.95)
             * (costs <= 1.0)
+            * (betas <= 5.0)
         )
         == 1
     )

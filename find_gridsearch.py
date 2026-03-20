@@ -15,10 +15,10 @@ def parsing():
     parser = argparse.ArgumentParser(description="Tokamak design optimization based on Gridsearch algorithm")
 
     # Setup
-    parser.add_argument("--num_episode", type = int, default = 10000)
+    parser.add_argument("--num_episode", type = int, default = 5000)
     parser.add_argument("--verbose", type = int, default = 100)
-    parser.add_argument("--n_grid", type = int, default = 40)
     parser.add_argument("--n_proc", type=int, default=4)
+    parser.add_argument("--use_file", type=bool, default=False)
 
     # directory
     parser.add_argument("--save_dir", type=str, default="./results/gridsearch")
@@ -125,22 +125,25 @@ if __name__ == "__main__":
     # directory
     if not os.path.exists(args["save_dir"]):
         os.makedirs(args["save_dir"])
-    
+
     save_result = os.path.join(args['save_dir'], "params_search.pkl")
-    
+
     # Design optimization
     print("============ Design optimization ============")
-    result = search_param_space_multi_cpu(
-        search_param_space_single_process,
-        args['num_episode'],
-        args['n_grid'],
-        args['n_proc']
-    )
+    if not args['use_file']:
+        result = search_param_space_multi_cpu(
+            search_param_space_single_process,
+            args['num_episode'],
+            args['n_proc']
+        )
 
-    with open(save_result, "wb") as file:
-        pickle.dump(result, file)
+        with open(save_result, "wb") as file:
+            pickle.dump(result, file)
+    else:
+        with open(save_result, "rb") as file:
+            result = pickle.load(file)
 
     optimal = find_optimal_design(result)
-    
+
     if optimal is not None:
         save_design(optimal, args['save_dir'], "optimal_config.pkl")
