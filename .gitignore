@@ -13,3 +13,7 @@ weights/*
 
 # pycache
 *.pyc
+
+# .claude
+.claude
+CLAUDE.md

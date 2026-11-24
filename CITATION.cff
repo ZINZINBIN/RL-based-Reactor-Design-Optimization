@@ -6,7 +6,21 @@ authors:
     orcid: "https://orcid.org/0009-0000-2610-4551"
 title: "Deep Reinforcement Learning based Fusion Reactor Design Optimization Code"
 version: "1.0.0"
-doi: "https://doi.org/10.48550/arXiv.2409.08231"  # Replace with your DOI
-url: "https://github.com/ZINZINBIN/Fusion-Reactor-Design-Optimization"
+url: "https://github.com/ZINZINBIN/RL-based-Reactor-Design-Optimization"
+repository-code: "https://github.com/ZINZINBIN/RL-based-Reactor-Design-Optimization"
 date-released: "2024-09-12"
 license: "MIT"
+preferred-citation:
+  type: article
+  title: "Design Optimization of Nuclear Fusion Reactor through Deep Reinforcement Learning"
+  authors:
+    - family-names: "Kim"
+      given-names: "Jinsu"
+      orcid: "https://orcid.org/0009-0000-2610-4551"
+    - family-names: "Seo"
+      given-names: "Jaemin"
+      orcid: "https://orcid.org/0000-0003-0635-0282"
+  doi: "10.48550/arXiv.2409.08231"
+  url: "https://arxiv.org/abs/2409.08231"
+  journal: "arXiv preprint arXiv:2409.08231"
+  year: 2024
